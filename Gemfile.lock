@@ -49,6 +49,7 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  parser
   rake (~> 13.0)
   rspec (~> 3.0)
   rubocop (~> 1.21)
@@ -56,4 +57,4 @@ DEPENDENCIES
   yard
 
 BUNDLED WITH
-   2.4.12
+   2.4.13
