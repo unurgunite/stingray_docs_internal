@@ -69,13 +69,13 @@ module StingrayDocsInternal # :nodoc:
       # @return [String] The generated documentation string for the method.
       def docs_helper(class_name, method_obj, private: false)
         attribute = method_attributes(method_obj)
-        <<-DOC
-    # +#{class_name}#{attribute[:method_symbol]}#{attribute[:method_name]}+    -> #{attribute[:return_type]}
-    #
-    # Method documentation.
-    #
-    #{"# @private\n" if private}#{attribute[:params_block]}# @return [#{attribute[:return_type]}]
-    #{attribute[:source]}
+        <<~DOC
+          # +#{class_name}#{attribute[:method_symbol]}#{attribute[:method_name]}+    -> #{attribute[:return_type]}
+          #
+          # Method documentation.
+          #
+          #{"# @private\n" if private}#{attribute[:params_block]}# @return [#{attribute[:return_type]}]
+          #{attribute[:source]}
         DOC
       end
 
