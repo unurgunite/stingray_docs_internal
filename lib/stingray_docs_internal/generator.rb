@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../stingray_docs_internal"
-
 module StingrayDocsInternal # :nodoc:
   module Generator # :nodoc:
     class << self
