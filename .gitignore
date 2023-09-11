@@ -6,7 +6,11 @@
 /pkg/
 /spec/reports/
 /tmp/
+.ruby-version
 
 # rspec failure tracking
 .rspec_status
 .idea
+
+# generated gems via bin/setup
+stingray_docs_internal-[0-9].[0-9].[0-9].gem
