@@ -14,12 +14,12 @@ module StingrayDocsInternal # :nodoc:
         YARD.parse_string(code)
         YARD::Registry.all(:class, :module).map do |method_obj|
           class_name = method_obj.name
-          methods = public_interface(method_obj, class_name).join("\n")
+          methods = public_interface(method_obj, class_name).join
 
           private_methods = private_interface(method_obj, class_name, private_methods_list)
           private_methods_block = private_methods.empty? ? "" : " private\n  #{private_methods.join("\n")}"
 
-          docstring(method_obj.type, class_name, methods, private_methods_block)
+          docstring(methods, private_methods_block, code)
         end.join("\n")
       end
 
@@ -75,7 +75,6 @@ module StingrayDocsInternal # :nodoc:
           # Method documentation.
           #
           #{"# @private\n" if private}#{attribute[:params_block]}# @return [#{attribute[:return_type]}]
-          #{attribute[:source]}
         DOC
       end
 
@@ -115,7 +114,7 @@ module StingrayDocsInternal # :nodoc:
       # @return [String] The generated parameters documentation block.
       def params_block_helper(method_obj)
         params = params_block(method_obj).join("\n")
-        params.empty? ? "" : "#{params}\n"
+        params.empty? ? nil : "#{params}\n"
       end
 
       # +Generator.params_block+                      -> Array
@@ -149,14 +148,13 @@ module StingrayDocsInternal # :nodoc:
       # @param [ObjectYARD::CodeObjects::MethodObject] methods The documentation for the methods.
       # @param [String] private_methods_block The documentation for the private methods.
       # @return [String] The final documentation string.
-      def docstring(struct_type, class_name, methods, private_methods_block)
-        <<~DOC
-          #{struct_type} #{class_name}
+      def docstring(methods, private_methods_block, code)
+        doc = <<~DOC
           #{methods}
-
           #{private_methods_block}
-          end
         DOC
+
+        doc.strip + "\n" + code
       end
     end
   end
