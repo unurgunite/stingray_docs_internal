@@ -14,12 +14,12 @@ module StingrayDocsInternal # :nodoc:
         YARD.parse_string(code)
         YARD::Registry.all(:class, :module).map do |method_obj|
           class_name = method_obj.name
-          methods = public_interface(method_obj, class_name).join.strip
+          methods = public_interface(method_obj, class_name).join
 
           private_methods = private_interface(method_obj, class_name, private_methods_list)
           private_methods_block = private_methods.empty? ? "" : "# private\n#{private_methods.join.strip}"
 
-          docstring(methods, private_methods_block, code)
+          docstring(method_obj.type, methods, private_methods_block, class_name)
         end.join("\n")
       end
 
@@ -66,13 +66,16 @@ module StingrayDocsInternal # :nodoc:
       # @param [Symbol] class_name The name of the class or module.
       # @param [YARD::CodeObjects::MethodObject] method_obj The method object.
       # @param [TrueClass|FalseClass] private Whether the method is private or not.
-      # @return [String] The generated documentation string for the method.
+      # @return [String] The generated documentation string for the method with 2 spaces before every line.
       def docs_helper(class_name, method_obj, private: false)
         attribute = method_attributes(method_obj)
-        <<~DOC
+        <<~DOC.split("\n").map { |n| "  #{n}" }.join("\n")
           # +#{class_name}#{attribute[:method_symbol]}#{attribute[:method_name]}+    -> #{attribute[:return_type]}
-          #{"# @private\n" if private}#{attribute[:params_block]}# @return [#{attribute[:return_type]}]
           #
+          # Method documentation.
+          #
+          #{"# @private\n" if private}#{attribute[:params_block]}# @return [#{attribute[:return_type]}]
+          #{attribute[:source]}
         DOC
       end
 
@@ -146,13 +149,13 @@ module StingrayDocsInternal # :nodoc:
       # @param [ObjectYARD::CodeObjects::MethodObject] methods The documentation for the methods.
       # @param [String] private_methods_block The documentation for the private methods.
       # @return [String] The final documentation string.
-      def docstring(methods, private_methods_block, code)
-        doc = <<~DOC
+      def docstring(struct_type, methods, private_methods_block, class_name)
+        <<~DOC
+          #{struct_type} #{class_name}
           #{methods}
           #{private_methods_block}
+          end
         DOC
-
-        doc.strip + "\n" + code
       end
     end
   end

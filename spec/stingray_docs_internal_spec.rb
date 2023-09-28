@@ -15,12 +15,12 @@ RSpec.describe StingrayDocsInternal do
     CODE
 
     result = <<~CODE
-      # +A#abc+    -> Object
-      #
-      # Method documentation.
-      #
-      # @return [Object]
       class A
+        # +A#abc+    -> Object
+        #
+        # Method documentation.
+        #
+        # @return [Object]
         def abc
           return 123
         end
@@ -29,8 +29,4 @@ RSpec.describe StingrayDocsInternal do
 
     expect(StingrayDocsInternal::Generator.generate_documentation(code)).to eq(result)
   end
-
-#   it "does something useful" do
-#     expect(false).to eq(true)
-#   end
 end
