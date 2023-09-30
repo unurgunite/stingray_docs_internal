@@ -14,12 +14,12 @@ module StingrayDocsInternal # :nodoc:
         YARD.parse_string(code)
         YARD::Registry.all(:class, :module).map do |method_obj|
           class_name = method_obj.name
-          methods = public_interface(method_obj, class_name).join("\n")
+          methods = public_interface(method_obj, class_name).map { |n| n + "\n\n" }.join.rstrip
 
           private_methods = private_interface(method_obj, class_name, private_methods_list)
-          private_methods_block = private_methods.empty? ? "" : " private\n  #{private_methods.join("\n")}"
+          private_methods_block = private_methods.empty? ? "" : "# private\n#{private_methods.join.strip}"
 
-          docstring(method_obj.type, class_name, methods, private_methods_block)
+          docstring(method_obj.type, methods, private_methods_block, class_name)
         end.join("\n")
       end
 
@@ -66,10 +66,10 @@ module StingrayDocsInternal # :nodoc:
       # @param [Symbol] class_name The name of the class or module.
       # @param [YARD::CodeObjects::MethodObject] method_obj The method object.
       # @param [TrueClass|FalseClass] private Whether the method is private or not.
-      # @return [String] The generated documentation string for the method.
+      # @return [String] The generated documentation string for the method with 2 spaces before every line.
       def docs_helper(class_name, method_obj, private: false)
         attribute = method_attributes(method_obj)
-        <<~DOC
+        <<~DOC.split("\n").map { |n| "  #{n}" }.join("\n")
           # +#{class_name}#{attribute[:method_symbol]}#{attribute[:method_name]}+    -> #{attribute[:return_type]}
           #
           # Method documentation.
@@ -115,7 +115,7 @@ module StingrayDocsInternal # :nodoc:
       # @return [String] The generated parameters documentation block.
       def params_block_helper(method_obj)
         params = params_block(method_obj).join("\n")
-        params.empty? ? "" : "#{params}\n"
+        params.empty? ? nil : "#{params}\n"
       end
 
       # +Generator.params_block+                      -> Array
@@ -149,14 +149,8 @@ module StingrayDocsInternal # :nodoc:
       # @param [ObjectYARD::CodeObjects::MethodObject] methods The documentation for the methods.
       # @param [String] private_methods_block The documentation for the private methods.
       # @return [String] The final documentation string.
-      def docstring(struct_type, class_name, methods, private_methods_block)
-        <<~DOC
-          #{struct_type} #{class_name}
-          #{methods}
-
-          #{private_methods_block}
-          end
-        DOC
+      def docstring(struct_type, methods, private_methods_block, class_name)
+        ["#{struct_type} #{class_name}", methods, private_methods_block].join("\n") + "end"
       end
     end
   end
