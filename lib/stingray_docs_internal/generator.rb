@@ -150,12 +150,7 @@ module StingrayDocsInternal # :nodoc:
       # @param [String] private_methods_block The documentation for the private methods.
       # @return [String] The final documentation string.
       def docstring(struct_type, methods, private_methods_block, class_name)
-        <<~DOC
-          #{struct_type} #{class_name}
-          #{methods}
-          #{private_methods_block}
-          end
-        DOC
+        ["#{struct_type} #{class_name}", methods, private_methods_block].join("\n") + "end"
       end
     end
   end
