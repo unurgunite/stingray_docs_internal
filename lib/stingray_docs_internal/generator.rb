@@ -14,7 +14,7 @@ module StingrayDocsInternal # :nodoc:
         YARD.parse_string(code)
         YARD::Registry.all(:class, :module).map do |method_obj|
           class_name = method_obj.name
-          methods = public_interface(method_obj, class_name).join
+          methods = public_interface(method_obj, class_name).map { |n| n + "\n\n" }.join.rstrip
 
           private_methods = private_interface(method_obj, class_name, private_methods_list)
           private_methods_block = private_methods.empty? ? "" : "# private\n#{private_methods.join.strip}"
