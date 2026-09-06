@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative '../types/primitive'
+
 module Docscribe
   module Infer
     # Return type inference and rescue-conditional return extraction.
@@ -472,7 +474,7 @@ module Docscribe
       # @return [String, nil]
       def op_asgn_fallback_type(left, right, meth, **opts) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
         fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
-        return synthesize_shovel_type(left, right, fallback: fallback) if meth == :<<
+        return synthesize_shovel_type(left, right, fallback: fallback) if shovel_method?(left, meth, opts[:core_rbs_provider])
 
         left_fallback = fallback_alias?(left, fallback) || left.nil?
         right_fallback = fallback_alias?(right, fallback) || right.nil?
@@ -752,22 +754,29 @@ module Docscribe
       # @param [Parser::AST::Node] node the `:return` AST node
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [String, nil]
-      def handle_block_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity
+      def handle_block_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
         send_node = node.children[0]
         return run_last_expr_type(node.children[2], **opts) unless send_node&.type == :send
+
+        meth = send_node.children[1]
+        # Dynamic for then/yield_self: return block's return directly (String for File.join)
+        # Must be before block_send_rbs_type to avoid Enumerator
+        if %i[then yield_self].include?(meth)
+          inner = run_last_expr_type(node.children[2], **opts)
+          return inner if inner
+        end
 
         block_send_type = block_send_rbs_type(node, send_node, **opts)
         return block_send_type if block_send_type
 
         # Dynamic fallback for map/collect without RBS: Array<inner>
-        meth = send_node.children[1]
         if %i[map collect].include?(meth)
           inner = run_last_expr_type(node.children[2], **opts)
           return "Array<#{inner}>" if inner && inner != 'Object' && inner != 'untyped'
         end
 
         run_last_expr_type(node.children[2], **opts)
-      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity
+      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
       # @note module_function: defines #block_send_rbs_type (visibility: private)
       # @param [Parser::AST::Node] node
@@ -796,8 +805,7 @@ module Docscribe
             placeholders = split_generic_args(inner_generic).select do |arg|
               tok = arg.strip.delete_suffix('?').strip
               tok == 'untyped' || tok.include?('::') || tok =~ /\A[a-z]/ ||
-                (tok =~ /\A[A-Z][A-Za-z0-9_]*\z/ &&
-                 !%w[String Integer Float Numeric Boolean Symbol nil void Object Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel].include?(tok))
+                (tok =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(tok))
             end
             result = rbs_type.dup
             placeholders.each do |ph|
@@ -815,7 +823,7 @@ module Docscribe
         return "#{base}<#{inner}>" if %w[Array Set Enumerable Enumerator].include?(base) && !rbs_type.include?('<') && !rbs_type.include?('[')
 
         nil
-      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/PerceivedComplexity
 
       # @note module_function: defines #generic_placeholder? (visibility: private)
       # @param [String, nil] rbs_type
@@ -827,11 +835,10 @@ module Docscribe
         return false unless inner
 
         args = split_generic_args(inner)
-        primitives = %w[String Integer Float Numeric Boolean Symbol nil void Object Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel]
         args.any? do |arg|
           token = arg.strip.delete_suffix('?').strip
           token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
-            (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !primitives.include?(token))
+            (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token))
         end
       end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
@@ -841,7 +848,7 @@ module Docscribe
       # @param [Parser::AST::Node] node the `:return` AST node
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [String, nil]
-      def handle_send_node(node, **opts)
+      def handle_send_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         recv = node.children[0]
         meth = node.children[1]
 
@@ -852,9 +859,11 @@ module Docscribe
         return compound_type if compound_type
 
         return 'String' if %i[to_s to_str inspect].include?(meth)
+        return 'String' if meth == :join && recv&.type == :const && recv.children[1] == :File
+        return 'String' if meth == :sub && recv && recv.type != :const # String#sub etc, fallback to String for any sub
 
         Literals.type_from_literal(node, fallback_type: opts[:fallback_type])
-      end
+      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
       # @note module_function: defines #handle_csend_node (visibility: private)
       # @param [Parser::AST::Node] node the `:csend` AST node (safe navigation)
@@ -1090,7 +1099,7 @@ module Docscribe
       # @return [String, nil]
       def compound_fallback_type(left, right, meth, **opts) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
         fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
-        return synthesize_shovel_type(left, right, fallback: fallback) if meth == :<<
+        return synthesize_shovel_type(left, right, fallback: fallback) if shovel_method?(left, meth, opts[:core_rbs_provider])
         return nil unless %i[+ - * / % ** | & ^].include?(meth)
 
         left_fallback = fallback_alias?(left, fallback) || left.nil?
@@ -1128,6 +1137,48 @@ module Docscribe
         return shovel_array_type(l, r, base, fallback) if %w[Array Set Enumerable Enumerator].include?(base)
 
         l
+      end
+
+      # Whether left#meth is shovel (returns self) via RBS dynamically, not hardcoding :<<.
+      #
+      # @note module_function: defines #shovel_method? (visibility: private)
+      # @param [String, nil] left left type
+      # @param [Symbol] meth method name
+      # @param [Docscribe::Types::RBS::Provider?] provider optional RBS provider
+      # @return [Boolean] true if shovel
+      def shovel_method?(left, meth, provider) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+        return false unless left && meth
+
+        base = left.split(/[<\[ ]/).first.to_s.strip.delete_suffix('?')
+        return false if base.empty?
+
+        # Try given provider first
+        if provider
+          rbs = resolve_rbs_return_type(base, meth, provider)
+          return true if rbs == 'self'
+        end
+        # Fallback to core RBS provider (dynamic, not hardcoding :<<)
+        core = core_rbs_provider
+        if core
+          rbs = resolve_rbs_return_type(base, meth, core)
+          return true if rbs == 'self'
+        end
+        false
+      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength
+
+      # Core RBS provider singleton for shovel/primitive checks (dynamic, not hardcoding).
+      #
+      # @note module_function: defines #core_rbs_provider (visibility: private)
+      # @raise [LoadError]
+      # @raise [StandardError]
+      # @return [Docscribe::Types::RBS::Provider, nil]
+      def core_rbs_provider
+        @core_rbs_provider ||= begin
+          require_relative '../types/rbs/provider'
+          Docscribe::Types::RBS::Provider.new(sig_dirs: ['sig'], collection_dirs: [])
+        rescue LoadError, StandardError
+          nil
+        end
       end
 
       # @note module_function: defines #shovel_array_type (visibility: private)

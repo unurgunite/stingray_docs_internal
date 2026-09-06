@@ -165,6 +165,10 @@ module Docscribe
 
       def self?.op_asgn_fallback_type: ((String | nil) left, (String | nil) right, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
+      def self?.shovel_method?: ((String | nil) left, Symbol meth, Types::RBS::Provider? provider) -> bool
+
+      def self?.core_rbs_provider: () -> (Types::RBS::Provider | nil)
+
       def self?.cleaned_recv_type: ((String | nil) raw) -> (String | nil)
 
       def self?.synthesize_shovel_type: ((String | nil) left, (String | nil) right, fallback: String) -> String

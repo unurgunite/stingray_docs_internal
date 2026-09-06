@@ -54,6 +54,9 @@ module Docscribe
       def self.optional_canonical_parts: ((String | nil) str) -> Array[String]
       def optional_canonical_parts: ((String | nil) str) -> Array[String]
 
+      def self.object_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def object_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
       def self.split_top_level_commas_local: (String str) -> Array[String]
       def split_top_level_commas_local: (String str) -> Array[String]
 

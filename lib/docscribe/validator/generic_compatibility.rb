@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../types/primitive'
 require 'docscribe/types/yard/validator'
 
 module Docscribe
@@ -20,6 +21,7 @@ module Docscribe
         optional_suffix: :optional_suffix_compatible?,
         generic_inner_alias: :generic_inner_alias_compatible?,
         union_optional: :union_vs_optional_compatible?,
+        object_compatible: :object_compatible?,
         fallback_union: :fallback_union_check?
       }.freeze
 
@@ -342,13 +344,10 @@ module Docscribe
         # @return [Boolean] true if token is alias (unknown primitive or namespaced/lowercase)
         def alias_token?(token)
           base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
-          # Known primitives that are not aliases — anything else (capitalized Elem, U, etc.) is alias
-          primitives = %w[String Integer Float Numeric Boolean Symbol nil void Object Array Hash Range Regexp Proc Method Untyped NilClass TrueClass FalseClass BasicObject Kernel]
-          return false if primitives.include?(base)
+          return false if Docscribe::Types::Primitive.primitive?(base)
           return true if base =~ /\A[a-z]/ || base.include?('::')
 
-          # Capitalized single word not in primitives (Elem, U, Optional, etc.) is alias
-          base =~ /\A[A-Z][A-Za-z0-9_]+\z/
+          base =~ /\A[A-Z][A-Za-z0-9_]*\z/
         end
 
         # Whether union `?, nil` forms are compatible: `Object?` vs `Object, nil` vs `Object|nil`.
@@ -399,6 +398,34 @@ module Docscribe
           !pa.empty? && pa == pb
         end
 
+        # Whether Object supertype compatibility holds: e.g., String vs Object, String, nil vs Object, nil.
+        #
+        # If expected is Object (or Object, nil, Object? etc) and yard is a concrete type
+        # (String, Array<String>, etc) with same nil presence, then yard is considered
+        # compatible with expected since Object is supertype of all. Handles
+        # receiver_or_and_type: String, nil vs Object, nil dynamically.
+        #
+        # @param [String, nil] yard_type YARD type string
+        # @param [String, nil] expected_type inferred/RBS type string
+        # @return [Boolean] true if Object supertype compatibility holds
+        def object_compatible?(yard_type, expected_type) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+          yard_canonical = optional_canonical_parts(yard_type)
+          exp_canonical = optional_canonical_parts(expected_type)
+          return false if yard_canonical.empty? || exp_canonical.empty?
+
+          yard_without_nil = yard_canonical.reject { |p| p == 'nil' }
+          exp_without_nil = exp_canonical.reject { |p| p == 'nil' }
+          yard_has_nil = yard_canonical.include?('nil')
+          exp_has_nil = exp_canonical.include?('nil')
+          # Expected is Object (or vice versa) and the other is concrete with same nil presence
+          if (exp_without_nil == ['Object'] && yard_without_nil != ['Object'] && !yard_without_nil.empty?) ||
+             (yard_without_nil == ['Object'] && exp_without_nil != ['Object'] && !exp_without_nil.empty?)
+            return yard_has_nil == exp_has_nil
+          end
+
+          false
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+
         # Canonical optional parts for `T?` / `T, nil` / `T|nil` / `T` forms.
         #
         # @param [String, nil] str raw type string
@@ -423,7 +450,7 @@ module Docscribe
             end
           end
           expanded.map { |part| normalize(part) }.reject(&:empty?).uniq.sort
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
         # Split by top-level commas outside `< > [ ] ( )` (generic-aware).
         #
@@ -466,7 +493,7 @@ module Docscribe
           end # rubocop:enable Metrics/BlockLength
           state[:parts] << state[:cur] unless state[:cur].empty?
           state[:parts]
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity
 
         # Method documentation.
         #
