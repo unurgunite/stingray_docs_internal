@@ -1188,10 +1188,10 @@ module Docscribe
       end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength
 
       # @note module_function: defines #receiver_or_and_type (visibility: private)
-      # @param [Parser::AST::Node] recv
-      # @param [Object, nil] core_rbs_provider
-      # @param [Hash, nil] local_var_types
-      # @param [Hash, nil] param_types
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
       # @return [String, nil]
       def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         left = receiver_rbs_type_name(recv.children[0], core_rbs_provider, local_var_types, param_types)
