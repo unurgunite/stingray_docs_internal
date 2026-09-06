@@ -74,7 +74,7 @@ module Docscribe
           end
 
           false
-        end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+        end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize
 
         # Whether either type is a fallback-only union for the given fallback type.
         #
@@ -408,23 +408,24 @@ module Docscribe
         # @param [String, nil] yard_type YARD type string
         # @param [String, nil] expected_type inferred/RBS type string
         # @return [Boolean] true if Object supertype compatibility holds
-        def object_compatible?(yard_type, expected_type) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        def object_compatible?(yard_type, expected_type) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
           yard_canonical = optional_canonical_parts(yard_type)
           exp_canonical = optional_canonical_parts(expected_type)
           return false if yard_canonical.empty? || exp_canonical.empty?
 
-          yard_without_nil = yard_canonical.reject { |p| p == 'nil' }
-          exp_without_nil = exp_canonical.reject { |p| p == 'nil' }
-          yard_has_nil = yard_canonical.include?('nil')
-          exp_has_nil = exp_canonical.include?('nil')
-          # Expected is Object (or vice versa) and the other is concrete with same nil presence
+          yard_without_nil = canonical_without_nil(yard_canonical)
+          exp_without_nil = canonical_without_nil(exp_canonical)
           if (exp_without_nil == ['Object'] && yard_without_nil != ['Object'] && !yard_without_nil.empty?) ||
              (yard_without_nil == ['Object'] && exp_without_nil != ['Object'] && !exp_without_nil.empty?)
-            return yard_has_nil == exp_has_nil
+            return yard_canonical.include?('nil') == exp_canonical.include?('nil')
           end
 
           false
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
+        def canonical_without_nil(canonical)
+          canonical.reject { |p| p == 'nil' }
+        end
 
         # Canonical optional parts for `T?` / `T, nil` / `T|nil` / `T` forms.
         #
@@ -450,7 +451,7 @@ module Docscribe
             end
           end
           expanded.map { |part| normalize(part) }.reject(&:empty?).uniq.sort
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
         # Split by top-level commas outside `< > [ ] ( )` (generic-aware).
         #
@@ -493,7 +494,7 @@ module Docscribe
           end # rubocop:enable Metrics/BlockLength
           state[:parts] << state[:cur] unless state[:cur].empty?
           state[:parts]
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
 
         # Method documentation.
         #

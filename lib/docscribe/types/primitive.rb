@@ -82,36 +82,32 @@ module Docscribe
       # @raise [LoadError]
       # @raise [StandardError]
       # @return [Array<String>]
-      def load_core_primitives # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+      def load_core_primitives
         primitives = Set.new
-        # Add YARD/RBS pseudo primitives
-        primitives.merge(%w[Boolean void untyped nil true false])
-        # Try to load RBS core
-        begin
-          loader = RBS::EnvironmentLoader.new
-          # Load core rbs (String, Integer, Array, Hash, etc)
-          # RBS 3.x: loader.add(library: 'rbs') or loader.add(path: ...)
-          # Use Environment to get class decls
-          env = RBS::Environment.new
-          loader.load(env: env)
-          # env.class_decls is Hash[Symbol, Hash] or similar
-          if env.respond_to?(:class_decls)
-            env.class_decls.each_key do |type_name|
-              primitives << type_name.to_s.split('::').last
-              primitives << type_name.to_s
-            end
-          end
-          # Also add interface decls (e.g., _Each)
-          env.interface_decls.each_key { |k| primitives << k.to_s.split('::').last } if env.respond_to?(:interface_decls)
-        rescue LoadError, StandardError
-          # Fallback minimal list
-          primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object Class Module IO File Dir Time Date Enumerator
-                              Set Enumerable])
-        end
-        # Normalize: ensure common primitives are present even if RBS load partial
-        primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object])
+        load_yard_primitives(primitives)
+        load_rbs_core(primitives)
+        merge_primitives(primitives)
         primitives.to_a
-      end # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
+      end
+
+      def load_yard_primitives(primitives)
+        primitives.merge(%w[Boolean void untyped nil true false])
+      end
+
+      def load_rbs_core(primitives) # rubocop:disable Metrics/AbcSize
+        loader = RBS::EnvironmentLoader.new
+        env = RBS::Environment.new
+        loader.load(env: env)
+        env.class_decls.each_key { |k| primitives.merge([k.to_s.split('::').last, k.to_s]) } if env.respond_to?(:class_decls)
+        env.interface_decls.each_key { |k| primitives << k.to_s.split('::').last } if env.respond_to?(:interface_decls)
+      rescue LoadError, StandardError
+        primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object Class Module IO File Dir Time Date Enumerator
+                            Set Enumerable])
+      end # rubocop:enable Metrics/AbcSize
+
+      def merge_primitives(primitives)
+        primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object])
+      end
     end
   end
 end

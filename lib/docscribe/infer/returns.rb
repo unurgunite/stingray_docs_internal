@@ -472,17 +472,12 @@ module Docscribe
       # @param [Symbol] meth
       # @param [Hash] opts
       # @return [String, nil]
-      def op_asgn_fallback_type(left, right, meth, **opts) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
-        fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
+      def op_asgn_fallback_type(left, right, meth, **opts)
+        fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s
         return synthesize_shovel_type(left, right, fallback: fallback) if shovel_method?(left, meth, opts[:core_rbs_provider])
 
-        left_fallback = fallback_alias?(left, fallback) || left.nil?
-        right_fallback = fallback_alias?(right, fallback) || right.nil?
-        return right.to_s if left_fallback && !right_fallback && right
-        return left.to_s if right_fallback && !left_fallback && left
-        return fallback if left_fallback && right_fallback
-
-        unify_types(left, right, fallback_type: fallback, nil_as_optional: true)
+        fallback_concrete_type(left, right, fallback) ||
+          unify_types(left, right, fallback_type: fallback, nil_as_optional: true)
       end
 
       # Handle `:begin` node for last_expr_type.
@@ -754,29 +749,41 @@ module Docscribe
       # @param [Parser::AST::Node] node the `:return` AST node
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [String, nil]
-      def handle_block_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      def handle_block_node(node, **opts)
         send_node = node.children[0]
         return run_last_expr_type(node.children[2], **opts) unless send_node&.type == :send
 
         meth = send_node.children[1]
-        # Dynamic for then/yield_self: return block's return directly (String for File.join)
-        # Must be before block_send_rbs_type to avoid Enumerator
-        if %i[then yield_self].include?(meth)
-          inner = run_last_expr_type(node.children[2], **opts)
-          return inner if inner
-        end
+        handle_then_block(node, meth, **opts) ||
+          block_send_rbs_type(node, send_node, **opts) ||
+          handle_map_block(node, meth, **opts) ||
+          run_last_expr_type(node.children[2], **opts)
+      end
 
-        block_send_type = block_send_rbs_type(node, send_node, **opts)
-        return block_send_type if block_send_type
-
-        # Dynamic fallback for map/collect without RBS: Array<inner>
-        if %i[map collect].include?(meth)
-          inner = run_last_expr_type(node.children[2], **opts)
-          return "Array<#{inner}>" if inner && inner != 'Object' && inner != 'untyped'
-        end
+      # @note module_function: defines #handle_then_block (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
+      # @param [Hash] opts
+      # @return [String, nil]
+      def handle_then_block(node, meth, **opts)
+        return nil unless %i[then yield_self].include?(meth)
 
         run_last_expr_type(node.children[2], **opts)
-      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      end
+
+      # @note module_function: defines #handle_map_block (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
+      # @param [Hash] opts
+      # @return [String, nil]
+      def handle_map_block(node, meth, **opts)
+        return nil unless %i[map collect].include?(meth)
+
+        inner = run_last_expr_type(node.children[2], **opts)
+        return nil unless inner && inner != 'Object' && inner != 'untyped'
+
+        "Array<#{inner}>"
+      end
 
       # @note module_function: defines #block_send_rbs_type (visibility: private)
       # @param [Parser::AST::Node] node
@@ -795,52 +802,98 @@ module Docscribe
       # @param [Parser::AST::Node] block_body
       # @param [Hash] opts
       # @return [String, nil]
-      def block_rbs_with_inner(rbs_type, block_body, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+      def block_rbs_with_inner(rbs_type, block_body, **opts)
         inner = run_last_expr_type(block_body, **opts)
         return nil unless inner
 
-        if generic_placeholder?(rbs_type)
-          inner_generic = extract_generic_inner(rbs_type)
-          if inner_generic
-            placeholders = split_generic_args(inner_generic).select do |arg|
-              tok = arg.strip.delete_suffix('?').strip
-              tok == 'untyped' || tok.include?('::') || tok =~ /\A[a-z]/ ||
-                (tok =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(tok))
-            end
-            result = rbs_type.dup
-            placeholders.each do |ph|
-              placeholder_token = ph.strip.delete_suffix('?').strip
-              result = result.gsub(placeholder_token, inner)
-            end
-            return result unless result == rbs_type
+        substituted = block_generic_substitution(rbs_type, inner)
+        return substituted if substituted
 
-            return rbs_type.gsub(/\bU\b/, inner).gsub(/\bElem\b/, inner).gsub(/\buntyped\b/, inner)
-                           .gsub(/\bV\b/, inner).gsub(/\bT\b/, inner).gsub(/\bE\b/, inner).gsub(/\bK\b/, inner)
-          end
+        bare_container_type(rbs_type, inner)
+      end
+
+      # @note module_function: defines #block_generic_substitution (visibility: private)
+      # @param [String, nil] rbs_type
+      # @param [String] inner
+      # @return [String, nil]
+      def block_generic_substitution(rbs_type, inner)
+        return nil unless generic_placeholder?(rbs_type)
+
+        inner_generic = extract_generic_inner(rbs_type)
+        return nil unless inner_generic
+
+        placeholders = placeholder_tokens(inner_generic)
+        result = substitute_placeholders(rbs_type, placeholders, inner)
+        return result unless result == rbs_type
+
+        fallback_generic_substitution(rbs_type, inner)
+      end
+
+      # @note module_function: defines #placeholder_tokens (visibility: private)
+      # @param [String] inner_generic
+      # @return [Array<String>]
+      def placeholder_tokens(inner_generic)
+        split_generic_args(inner_generic).select do |arg|
+          placeholder_token?(arg.strip.delete_suffix('?').strip)
         end
+      end
 
+      # @note module_function: defines #substitute_placeholders (visibility: private)
+      # @param [String] rbs_type
+      # @param [Array<String>] placeholders
+      # @param [String] inner
+      # @return [String]
+      def substitute_placeholders(rbs_type, placeholders, inner)
+        result = rbs_type.dup
+        placeholders.each do |ph|
+          token = ph.strip.delete_suffix('?').strip
+          result = result.gsub(token, inner)
+        end
+        result
+      end
+
+      # @note module_function: defines #fallback_generic_substitution (visibility: private)
+      # @param [String] rbs_type
+      # @param [String] inner
+      # @return [String]
+      def fallback_generic_substitution(rbs_type, inner)
+        rbs_type.gsub(/\bU\b/, inner).gsub(/\bElem\b/, inner).gsub(/\buntyped\b/, inner)
+                .gsub(/\bV\b/, inner).gsub(/\bT\b/, inner).gsub(/\bE\b/, inner).gsub(/\bK\b/, inner)
+      end
+
+      # @note module_function: defines #bare_container_type (visibility: private)
+      # @param [String, nil] rbs_type
+      # @param [String] inner
+      # @return [String, nil]
+      def bare_container_type(rbs_type, inner)
         base = rbs_type.split(/[<\[ ]/).first
-        return "#{base}<#{inner}>" if %w[Array Set Enumerable Enumerator].include?(base) && !rbs_type.include?('<') && !rbs_type.include?('[')
+        return nil unless %w[Array Set Enumerable Enumerator].include?(base)
+        return nil if rbs_type.include?('<') || rbs_type.include?('[')
 
-        nil
-      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/PerceivedComplexity
+        "#{base}<#{inner}>"
+      end
 
       # @note module_function: defines #generic_placeholder? (visibility: private)
       # @param [String, nil] rbs_type
       # @return [Boolean]
-      def generic_placeholder?(rbs_type) # rubocop:disable Metrics/CyclomaticComplexity
+      def generic_placeholder?(rbs_type)
         return false unless rbs_type =~ /[<\[]/
 
         inner = extract_generic_inner(rbs_type)
         return false unless inner
 
-        args = split_generic_args(inner)
-        args.any? do |arg|
-          token = arg.strip.delete_suffix('?').strip
-          token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
-            (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token))
+        split_generic_args(inner).any? do |arg|
+          placeholder_token?(arg.strip.delete_suffix('?').strip)
         end
-      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      end
+
+      # @note module_function: defines #placeholder_token? (visibility: private)
+      # @param [String] token
+      # @return [Boolean]
+      def placeholder_token?(token)
+        token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
+          (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token))
+      end
 
       # Handle `:send` node for last_expr_type.
       #
@@ -848,22 +901,55 @@ module Docscribe
       # @param [Parser::AST::Node] node the `:return` AST node
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [String, nil]
-      def handle_send_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      def handle_send_node(node, **opts)
         recv = node.children[0]
         meth = node.children[1]
+        rbs = send_rbs_type(recv, meth, **opts) if opts[:core_rbs_provider]
+        return rbs if rbs
 
-        rbs_type = send_rbs_type(recv, meth, **opts) if opts[:core_rbs_provider]
-        return rbs_type if rbs_type
+        compound = infer_from_compound_assign(node, **opts)
+        return compound if compound
 
-        compound_type = infer_from_compound_assign(node, **opts)
-        return compound_type if compound_type
-
-        return 'String' if %i[to_s to_str inspect].include?(meth)
-        return 'String' if meth == :join && recv&.type == :const && recv.children[1] == :File
-        return 'String' if meth == :sub && recv && recv.type != :const # String#sub etc, fallback to String for any sub
+        str = string_send_type(meth, recv)
+        return str if str
 
         Literals.type_from_literal(node, fallback_type: opts[:fallback_type])
-      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      end
+
+      # @note module_function: defines #string_send_type (visibility: private)
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @return [String, nil]
+      def string_send_type(meth, recv)
+        return 'String' if string_like_method?(meth)
+        return 'String' if file_join_method?(meth, recv)
+        return 'String' if sub_string_method?(meth, recv)
+
+        nil
+      end
+
+      # @note module_function: defines #string_like_method? (visibility: private)
+      # @param [Symbol] meth
+      # @return [Boolean]
+      def string_like_method?(meth)
+        %i[to_s to_str inspect].include?(meth)
+      end
+
+      # @note module_function: defines #file_join_method? (visibility: private)
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @return [Boolean]
+      def file_join_method?(meth, recv)
+        meth == :join && recv&.type == :const && recv.children[1] == :File
+      end
+
+      # @note module_function: defines #sub_string_method? (visibility: private)
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @return [Boolean]
+      def sub_string_method?(meth, recv)
+        meth == :sub && recv && recv.type != :const
+      end
 
       # @note module_function: defines #handle_csend_node (visibility: private)
       # @param [Parser::AST::Node] node the `:csend` AST node (safe navigation)
@@ -1097,18 +1183,49 @@ module Docscribe
       # @param [Symbol] meth
       # @param [Hash] opts
       # @return [String, nil]
-      def compound_fallback_type(left, right, meth, **opts) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
-        fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
+      def compound_fallback_type(left, right, meth, **opts)
+        fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s
         return synthesize_shovel_type(left, right, fallback: fallback) if shovel_method?(left, meth, opts[:core_rbs_provider])
         return nil unless %i[+ - * / % ** | & ^].include?(meth)
 
-        left_fallback = fallback_alias?(left, fallback) || left.nil?
-        right_fallback = fallback_alias?(right, fallback) || right.nil?
-        return right.to_s if left_fallback && !right_fallback && right
-        return left.to_s if right_fallback && !left_fallback && left
-        return fallback if left_fallback && right_fallback
+        fallback_concrete_type(left, right, fallback) ||
+          unify_types(left, right, fallback_type: fallback, nil_as_optional: true)
+      end
 
-        unify_types(left, right, fallback_type: fallback, nil_as_optional: true)
+      # @note module_function: defines #fallback_concrete_type (visibility: private)
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @param [String] fallback
+      # @return [String, nil]
+      def fallback_concrete_type(left, right, fallback)
+        left_is_fallback = fallback_type?(left, fallback)
+        right_is_fallback = fallback_type?(right, fallback)
+        preferred = fallback_preferred_side(left, right, left_is_fallback, right_is_fallback)
+        return preferred if preferred
+        return fallback if left_is_fallback && right_is_fallback
+
+        nil
+      end
+
+      # @note module_function: defines #fallback_preferred_side (visibility: private)
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @param [Boolean] left_is_fallback
+      # @param [Boolean] right_is_fallback
+      # @return [String, nil]
+      def fallback_preferred_side(left, right, left_is_fallback, right_is_fallback)
+        return right.to_s if left_is_fallback && !right_is_fallback && right
+        return left.to_s if right_is_fallback && !left_is_fallback && left
+
+        nil
+      end
+
+      # @note module_function: defines #fallback_type? (visibility: private)
+      # @param [String, nil] type
+      # @param [String] fallback
+      # @return [Boolean]
+      def fallback_type?(type, fallback)
+        type.nil? || fallback_alias?(type, fallback)
       end
 
       # @note module_function: defines #cleaned_recv_type (visibility: private)
@@ -1146,25 +1263,26 @@ module Docscribe
       # @param [Symbol] meth method name
       # @param [Docscribe::Types::RBS::Provider?] provider optional RBS provider
       # @return [Boolean] true if shovel
-      def shovel_method?(left, meth, provider) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+      def shovel_method?(left, meth, provider)
         return false unless left && meth
 
         base = left.split(/[<\[ ]/).first.to_s.strip.delete_suffix('?')
         return false if base.empty?
+        return true if resolve_self_via_rbs?(base, meth, provider)
 
-        # Try given provider first
-        if provider
-          rbs = resolve_rbs_return_type(base, meth, provider)
-          return true if rbs == 'self'
-        end
-        # Fallback to core RBS provider (dynamic, not hardcoding :<<)
-        core = core_rbs_provider
-        if core
-          rbs = resolve_rbs_return_type(base, meth, core)
-          return true if rbs == 'self'
-        end
-        false
-      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength
+        resolve_self_via_rbs?(base, meth, core_rbs_provider)
+      end
+
+      # @note module_function: defines #resolve_self_via_rbs? (visibility: private)
+      # @param [String] base
+      # @param [Symbol] meth
+      # @param [Docscribe::Types::RBS::Provider?] provider
+      # @return [Boolean]
+      def resolve_self_via_rbs?(base, meth, provider)
+        return false unless provider
+
+        resolve_rbs_return_type(base, meth, provider) == 'self'
+      end
 
       # Core RBS provider singleton for shovel/primitive checks (dynamic, not hardcoding).
       #
@@ -1220,23 +1338,45 @@ module Docscribe
       # @param [Hash<String, String>?] local_var_types inferred local variable types
       # @param [Hash<String, String>?] param_types parameter name-to-type map
       # @return [String, nil]
-      def receiver_rbs_type_name(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+      def receiver_rbs_type_name(recv, core_rbs_provider, local_var_types, param_types)
         return unless recv
 
         literal = receiver_literal_type(recv)
         return literal if literal
         return receiver_var_type(recv, local_var_types, param_types) if var_receiver?(recv)
 
+        receiver_dispatch_type(recv, core_rbs_provider, local_var_types, param_types)
+      end
+
+      # @note module_function: defines #receiver_dispatch_type (visibility: private)
+      # @param [Parser::AST::Node] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
+      # @return [String, nil]
+      def receiver_dispatch_type(recv, core_rbs_provider, local_var_types, param_types)
         case recv.type
         when :send, :csend
           receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
         when :or, :and
           receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
         when :begin
-          inner = recv.children[0]
-          receiver_rbs_type_name(inner, core_rbs_provider, local_var_types, param_types) if inner && recv.children.size == 1
+          receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
         end
-      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength
+      end
+
+      # @note module_function: defines #receiver_begin_type (visibility: private)
+      # @param [Parser::AST::Node] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
+      # @return [String, nil]
+      def receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
+        inner = recv.children[0]
+        return unless inner && recv.children.size == 1
+
+        receiver_rbs_type_name(inner, core_rbs_provider, local_var_types, param_types)
+      end
 
       # @note module_function: defines #receiver_or_and_type (visibility: private)
       # @param [Parser::AST::Node, nil] recv
@@ -1244,18 +1384,55 @@ module Docscribe
       # @param [Hash<String, String>?] local_var_types
       # @param [Hash<String, String>?] param_types
       # @return [String, nil]
-      def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
         left = receiver_rbs_type_name(recv.children[0], core_rbs_provider, local_var_types, param_types)
         right = receiver_rbs_type_name(recv.children[1], core_rbs_provider, local_var_types, param_types)
-        left_clean = left ? (cleaned_recv_type(left) || left) : nil
-        right_clean = right ? (cleaned_recv_type(right) || right) : nil
-        # Prefer concrete clean type; if both present and equal after cleaning, return clean
-        return left_clean if left_clean && !right_clean
-        return right_clean if right_clean && !left_clean
-        return left_clean if left_clean && right_clean && left_clean == right_clean
+        left_clean = resolve_cleaned_type(left)
+        right_clean = resolve_cleaned_type(right)
+        receiver_or_and_preference(left_clean, right_clean, left, right)
+      end
+
+      # @note module_function: defines #resolve_cleaned_type (visibility: private)
+      # @param [String, nil] type
+      # @return [String, nil]
+      def resolve_cleaned_type(type)
+        return nil unless type
+
+        cleaned_recv_type(type) || type
+      end
+
+      # @note module_function: defines #receiver_or_and_preference (visibility: private)
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @return [String, nil]
+      def receiver_or_and_preference(left_clean, right_clean, left, right)
+        preferred = single_clean_preference(left_clean, right_clean)
+        return preferred if preferred
+        return left_clean if both_clean_equal?(left_clean, right_clean)
 
         left_clean || right_clean || left || right
-      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      end
+
+      # @note module_function: defines #single_clean_preference (visibility: private)
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @return [String, nil]
+      def single_clean_preference(left_clean, right_clean)
+        return left_clean if left_clean && !right_clean
+        return right_clean if right_clean && !left_clean
+
+        nil
+      end
+
+      # @note module_function: defines #both_clean_equal? (visibility: private)
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @return [Boolean]
+      def both_clean_equal?(left_clean, right_clean)
+        left_clean && right_clean && left_clean == right_clean
+      end
 
       # @note module_function: defines #receiver_literal_type (visibility: private)
       # @param [Parser::AST::Node, nil] recv
