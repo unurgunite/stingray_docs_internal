@@ -79,8 +79,6 @@ module Docscribe
       # if RBS not available (e.g., in test env without rbs gem).
       #
       # @note module_function: defines #load_core_primitives (visibility: private)
-      # @raise [LoadError]
-      # @raise [StandardError]
       # @return [Array<String>]
       def load_core_primitives
         primitives = Set.new
@@ -90,10 +88,19 @@ module Docscribe
         primitives.to_a
       end
 
+      # @note module_function: defines #load_yard_primitives (visibility: private)
+      # @param [Object] primitives
+      # @return [Object]
       def load_yard_primitives(primitives)
         primitives.merge(%w[Boolean void untyped nil true false])
       end
 
+      # @note module_function: defines #load_rbs_core (visibility: private)
+      # @param [Object] primitives
+      # @raise [LoadError]
+      # @raise [StandardError]
+      # @return [Object?]
+      # @return [Object] if LoadError, StandardError
       def load_rbs_core(primitives) # rubocop:disable Metrics/AbcSize
         loader = RBS::EnvironmentLoader.new
         env = RBS::Environment.new
@@ -105,6 +112,9 @@ module Docscribe
                             Set Enumerable])
       end # rubocop:enable Metrics/AbcSize
 
+      # @note module_function: defines #merge_primitives (visibility: private)
+      # @param [Object] primitives
+      # @return [Object]
       def merge_primitives(primitives)
         primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object])
       end

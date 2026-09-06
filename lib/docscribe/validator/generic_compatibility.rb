@@ -423,6 +423,8 @@ module Docscribe
           false
         end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
+        # @param [Object] canonical
+        # @return [Object]
         def canonical_without_nil(canonical)
           canonical.reject { |p| p == 'nil' }
         end
