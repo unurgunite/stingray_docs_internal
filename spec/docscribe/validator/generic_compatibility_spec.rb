@@ -495,7 +495,7 @@ RSpec.describe Docscribe::Infer::Returns do
       let(:code) { 'def foo; [1,2].map { |x| x.to_s }; end' }
       let(:block_node) { described_class.extract_def_body(described_class.parse_method_source(code)) }
 
-      it { is_expected.to eq('Object') }
+      it { is_expected.to eq('Array<String>') }
     end
 
     context 'when block without provider (select)' do

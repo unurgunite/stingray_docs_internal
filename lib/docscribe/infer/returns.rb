@@ -752,13 +752,22 @@ module Docscribe
       # @param [Parser::AST::Node] node the `:return` AST node
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [String, nil]
-      def handle_block_node(node, **opts)
+      def handle_block_node(node, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity
         send_node = node.children[0]
         return run_last_expr_type(node.children[2], **opts) unless send_node&.type == :send
 
         block_send_type = block_send_rbs_type(node, send_node, **opts)
-        block_send_type || run_last_expr_type(node.children[2], **opts)
-      end
+        return block_send_type if block_send_type
+
+        # Dynamic fallback for map/collect without RBS: Array<inner>
+        meth = send_node.children[1]
+        if %i[map collect].include?(meth)
+          inner = run_last_expr_type(node.children[2], **opts)
+          return "Array<#{inner}>" if inner && inner != 'Object' && inner != 'untyped'
+        end
+
+        run_last_expr_type(node.children[2], **opts)
+      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity
 
       # @note module_function: defines #block_send_rbs_type (visibility: private)
       # @param [Parser::AST::Node] node
@@ -777,19 +786,54 @@ module Docscribe
       # @param [Parser::AST::Node] block_body
       # @param [Hash] opts
       # @return [String, nil]
-      def block_rbs_with_inner(rbs_type, block_body, **opts)
+      def block_rbs_with_inner(rbs_type, block_body, **opts) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
         inner = run_last_expr_type(block_body, **opts)
-        return nil unless inner && generic_placeholder?(rbs_type)
+        return nil unless inner
 
-        rbs_type.gsub(/\bU\b/, inner).gsub(/\bElem\b/, inner)
-      end
+        if generic_placeholder?(rbs_type)
+          inner_generic = extract_generic_inner(rbs_type)
+          if inner_generic
+            placeholders = split_generic_args(inner_generic).select do |arg|
+              tok = arg.strip.delete_suffix('?').strip
+              tok == 'untyped' || tok.include?('::') || tok =~ /\A[a-z]/ ||
+                (tok =~ /\A[A-Z][A-Za-z0-9_]*\z/ &&
+                 !%w[String Integer Float Numeric Boolean Symbol nil void Object Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel].include?(tok))
+            end
+            result = rbs_type.dup
+            placeholders.each do |ph|
+              placeholder_token = ph.strip.delete_suffix('?').strip
+              result = result.gsub(placeholder_token, inner)
+            end
+            return result unless result == rbs_type
+
+            return rbs_type.gsub(/\bU\b/, inner).gsub(/\bElem\b/, inner).gsub(/\buntyped\b/, inner)
+                           .gsub(/\bV\b/, inner).gsub(/\bT\b/, inner).gsub(/\bE\b/, inner).gsub(/\bK\b/, inner)
+          end
+        end
+
+        base = rbs_type.split(/[<\[ ]/).first
+        return "#{base}<#{inner}>" if %w[Array Set Enumerable Enumerator].include?(base) && !rbs_type.include?('<') && !rbs_type.include?('[')
+
+        nil
+      end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
       # @note module_function: defines #generic_placeholder? (visibility: private)
       # @param [String, nil] rbs_type
       # @return [Boolean]
-      def generic_placeholder?(rbs_type)
-        rbs_type.include?('U') || rbs_type.include?('Elem')
-      end
+      def generic_placeholder?(rbs_type) # rubocop:disable Metrics/CyclomaticComplexity
+        return false unless rbs_type =~ /[<\[]/
+
+        inner = extract_generic_inner(rbs_type)
+        return false unless inner
+
+        args = split_generic_args(inner)
+        primitives = %w[String Integer Float Numeric Boolean Symbol nil void Object Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel]
+        args.any? do |arg|
+          token = arg.strip.delete_suffix('?').strip
+          token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
+            (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !primitives.include?(token))
+        end
+      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
       # Handle `:send` node for last_expr_type.
       #
@@ -806,6 +850,8 @@ module Docscribe
 
         compound_type = infer_from_compound_assign(node, **opts)
         return compound_type if compound_type
+
+        return 'String' if %i[to_s to_str inspect].include?(meth)
 
         Literals.type_from_literal(node, fallback_type: opts[:fallback_type])
       end
@@ -1059,7 +1105,7 @@ module Docscribe
       # @note module_function: defines #cleaned_recv_type (visibility: private)
       # @param [String, nil] raw
       # @return [String, nil]
-      def cleaned_recv_type(raw)
+      def cleaned_recv_type(raw) # rubocop:disable SortedMethodsByCall/Waterfall
         return nil unless raw && raw != FALLBACK_TYPE
 
         str = raw.to_s.strip
@@ -1068,7 +1114,7 @@ module Docscribe
         str = stripped_union_type(str) || str if str.include?(',')
         cleaned = str.delete_suffix('?').strip
         cleaned.empty? ? nil : cleaned
-      end
+      end # rubocop:enable SortedMethodsByCall/Waterfall
 
       # @note module_function: defines #synthesize_shovel_type (visibility: private)
       # @param [String, nil] left
@@ -1123,7 +1169,7 @@ module Docscribe
       # @param [Hash<String, String>?] local_var_types inferred local variable types
       # @param [Hash<String, String>?] param_types parameter name-to-type map
       # @return [String, nil]
-      def receiver_rbs_type_name(recv, core_rbs_provider, local_var_types, param_types)
+      def receiver_rbs_type_name(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
         return unless recv
 
         literal = receiver_literal_type(recv)
@@ -1135,8 +1181,11 @@ module Docscribe
           receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
         when :or, :and
           receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
+        when :begin
+          inner = recv.children[0]
+          receiver_rbs_type_name(inner, core_rbs_provider, local_var_types, param_types) if inner && recv.children.size == 1
         end
-      end
+      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/MethodLength
 
       # @note module_function: defines #receiver_or_and_type (visibility: private)
       # @param [Parser::AST::Node] recv
@@ -1144,14 +1193,17 @@ module Docscribe
       # @param [Hash, nil] local_var_types
       # @param [Hash, nil] param_types
       # @return [String, nil]
-      def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
         left = receiver_rbs_type_name(recv.children[0], core_rbs_provider, local_var_types, param_types)
         right = receiver_rbs_type_name(recv.children[1], core_rbs_provider, local_var_types, param_types)
-        return left if left && !right
-        return right if right && !left
-        return left if left && right && left == right
+        left_clean = left ? (cleaned_recv_type(left) || left) : nil
+        right_clean = right ? (cleaned_recv_type(right) || right) : nil
+        # Prefer concrete clean type; if both present and equal after cleaning, return clean
+        return left_clean if left_clean && !right_clean
+        return right_clean if right_clean && !left_clean
+        return left_clean if left_clean && right_clean && left_clean == right_clean
 
-        left || right
+        left_clean || right_clean || left || right
       end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
       # @note module_function: defines #receiver_literal_type (visibility: private)
