@@ -45,6 +45,18 @@ module Docscribe
       def self.suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
       def suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
 
+      def self.pipe_aware_suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def pipe_aware_suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.optional_forms_equal?: ((String | nil) first, (String | nil) second) -> bool
+      def optional_forms_equal?: ((String | nil) first, (String | nil) second) -> bool
+
+      def self.optional_canonical_parts: ((String | nil) str) -> Array[String]
+      def optional_canonical_parts: ((String | nil) str) -> Array[String]
+
+      def self.split_top_level_commas_local: (String str) -> Array[String]
+      def split_top_level_commas_local: (String str) -> Array[String]
+
       def self.generic_pair?: (String norm_yard, String norm_expected) -> bool
       def generic_pair?: (String norm_yard, String norm_expected) -> bool
 

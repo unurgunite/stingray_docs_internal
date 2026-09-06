@@ -1045,7 +1045,7 @@ module Docscribe
       def compound_fallback_type(left, right, meth, **opts) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/AbcSize
         fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
         return synthesize_shovel_type(left, right, fallback: fallback) if meth == :<<
-        return nil unless %i[+ - * / % ** | & ^ >>].include?(meth)
+        return nil unless %i[+ - * / % ** | & ^].include?(meth)
 
         left_fallback = fallback_alias?(left, fallback) || left.nil?
         right_fallback = fallback_alias?(right, fallback) || right.nil?
@@ -1130,10 +1130,29 @@ module Docscribe
         return literal if literal
         return receiver_var_type(recv, local_var_types, param_types) if var_receiver?(recv)
 
-        return unless recv.type == :send
-
-        receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
+        case recv.type
+        when :send, :csend
+          receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
+        when :or, :and
+          receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
+        end
       end
+
+      # @note module_function: defines #receiver_or_and_type (visibility: private)
+      # @param [Parser::AST::Node] recv
+      # @param [Object, nil] core_rbs_provider
+      # @param [Hash, nil] local_var_types
+      # @param [Hash, nil] param_types
+      # @return [String, nil]
+      def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+        left = receiver_rbs_type_name(recv.children[0], core_rbs_provider, local_var_types, param_types)
+        right = receiver_rbs_type_name(recv.children[1], core_rbs_provider, local_var_types, param_types)
+        return left if left && !right
+        return right if right && !left
+        return left if left && right && left == right
+
+        left || right
+      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
       # @note module_function: defines #receiver_literal_type (visibility: private)
       # @param [Parser::AST::Node, nil] recv

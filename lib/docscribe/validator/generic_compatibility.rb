@@ -351,17 +351,122 @@ module Docscribe
           base =~ /\A[A-Z][A-Za-z0-9_]+\z/
         end
 
-        # Whether union `?, nil` forms are compatible: `Object?` vs `Object, nil`.
+        # Whether union `?, nil` forms are compatible: `Object?` vs `Object, nil` vs `Object|nil`.
+        #
+        # Handles all three forms `SomeType? == SomeType|nil == SomeType, nil` plus
+        # bare `SomeType` vs optional equivalence via pipe/comma normalization.
         #
         # @param [String, nil] yard_type YARD type string
         # @param [String, nil] expected_type inferred/RBS type string
-        # @return [Boolean] true if one is `Type?` and other is `Type, nil`
+        # @return [Boolean] true if one is `Type?` and other is `Type, nil` / `Type|nil`
         def union_vs_optional_compatible?(yard_type, expected_type)
-          norm_yard = normalize(yard_type)
-          norm_expected = normalize(expected_type)
-          question_vs_comma_nil?(norm_yard, norm_expected) ||
-            suffix_vs_union_first?(yard_type, expected_type)
+          norm_yard = normalize(yard_type).gsub('|', ',')
+          norm_expected = normalize(expected_type).gsub('|', ',')
+          return true if question_vs_comma_nil?(norm_yard, norm_expected)
+          return true if suffix_vs_union_first?(yard_type, expected_type)
+          return true if pipe_aware_suffix_vs_union_first?(yard_type, expected_type)
+
+          optional_forms_equal?(yard_type, expected_type)
         end
+
+        # Pipe-aware variant of {#suffix_vs_union_first?} normalizing `|` to `,`.
+        #
+        # @param [String, nil] yard_type YARD type string
+        # @param [String, nil] expected_type inferred/RBS type string
+        # @return [Boolean] true if suffix vs union matches after pipe normalization
+        def pipe_aware_suffix_vs_union_first?(yard_type, expected_type)
+          # Normalize both by converting pipe to comma before comparison
+          y = yard_type.to_s.gsub('|', ',')
+          e = expected_type.to_s.gsub('|', ',')
+          left_match = normalize(y).delete_suffix('?') ==
+                       normalize(split_top_level_commas_local(e).first || '')
+          right_match = normalize(e).delete_suffix('?') ==
+                        normalize(split_top_level_commas_local(y).first || '')
+          left_match || right_match
+        end
+
+        # Whether optional forms `T?`, `T, nil`, `T|nil` are equivalent (same canonical parts).
+        #
+        # Canonicalizes `T?` => `[T, nil]`, `T, nil` / `T|nil` => `[T, nil]`, `T` => `[T]`.
+        # Generic-aware split keeps `Hash<String, Integer>, nil` intact.
+        #
+        # @param [String, nil] first first type string
+        # @param [String, nil] second second type string
+        # @return [Boolean] true if canonical optional parts equal and non-empty
+        def optional_forms_equal?(first, second)
+          pa = optional_canonical_parts(first)
+          pb = optional_canonical_parts(second)
+          !pa.empty? && pa == pb
+        end
+
+        # Canonical optional parts for `T?` / `T, nil` / `T|nil` / `T` forms.
+        #
+        # @param [String, nil] str raw type string
+        # @return [Array<String>] sorted unique normalized parts
+        def optional_canonical_parts(str) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+          return [] if str.nil? || str.to_s.strip.empty?
+
+          s = str.to_s.gsub('|', ',').strip
+          # Single optional without comma: "String?" => ["String", "nil"]
+          if s.end_with?('?') && !s.include?(',')
+            base = normalize(s.delete_suffix('?').strip)
+            return [base, 'nil'].sort
+          end
+
+          parts = split_top_level_commas_local(s)
+          expanded = parts.flat_map do |part|
+            stripped = part.strip
+            if stripped.end_with?('?')
+              [normalize(stripped.delete_suffix('?').strip), 'nil']
+            else
+              [normalize(stripped)]
+            end
+          end
+          expanded.map { |part| normalize(part) }.reject(&:empty?).uniq.sort
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+
+        # Split by top-level commas outside `< > [ ] ( )` (generic-aware).
+        #
+        # Mirrors `Docscribe::Infer::Returns.split_top_level_commas` but local to avoid cross-dep.
+        #
+        # @param [String] str type string to split
+        # @return [Array<String>] parts split on top-level commas
+        def split_top_level_commas_local(str) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
+          state = { parts: [], cur: +'', da: 0, db: 0, dp: 0 } #: Hash[Symbol, untyped]
+          str.each_char do |chr| # rubocop:disable Metrics/BlockLength
+            case chr
+            when '<'
+              state[:da] += 1
+              state[:cur] << chr
+            when '>'
+              state[:da] -= 1
+              state[:cur] << chr
+            when '['
+              state[:db] += 1
+              state[:cur] << chr
+            when ']'
+              state[:db] -= 1
+              state[:cur] << chr
+            when '('
+              state[:dp] += 1
+              state[:cur] << chr
+            when ')'
+              state[:dp] -= 1
+              state[:cur] << chr
+            when ','
+              if state[:da].zero? && state[:db].zero? && state[:dp].zero?
+                state[:parts] << state[:cur]
+                state[:cur] = +''
+              else
+                state[:cur] << ','
+              end
+            else
+              state[:cur] << chr
+            end
+          end # rubocop:enable Metrics/BlockLength
+          state[:parts] << state[:cur] unless state[:cur].empty?
+          state[:parts]
+        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
 
         # Method documentation.
         #

@@ -255,7 +255,7 @@ RSpec.describe Docscribe::Infer::Returns do
         Parser::AST::Node.new(:and, [Parser::AST::Node.new(:nil, []), Parser::AST::Node.new(:str, ['a'])])
       end
 
-      it { is_expected.to be_nil }
+      it { is_expected.to eq('NilClass') }
     end
 
     context 'when recv is :or node (unsupported)' do
@@ -263,7 +263,7 @@ RSpec.describe Docscribe::Infer::Returns do
         Parser::AST::Node.new(:or, [Parser::AST::Node.new(:nil, []), Parser::AST::Node.new(:str, ['a'])])
       end
 
-      it { is_expected.to be_nil }
+      it { is_expected.to eq('NilClass') }
     end
 
     context 'when recv is :csend node (unsupported)' do
@@ -271,7 +271,7 @@ RSpec.describe Docscribe::Infer::Returns do
         Parser::AST::Node.new(:csend, [Parser::AST::Node.new(:send, [nil, :tags]), :params])
       end
 
-      it { is_expected.to be_nil }
+      it { is_expected.to eq('Object') }
     end
   end
 

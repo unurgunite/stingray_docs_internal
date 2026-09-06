@@ -99,6 +99,8 @@ module Docscribe
 
       def self?.receiver_rbs_type_name: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
 
+      def self?.receiver_or_and_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
       def self?.receiver_literal_type: ((Parser::AST::Node | nil) recv) -> (String | nil)
 
       def self?.var_receiver?: ((Parser::AST::Node | nil) recv) -> bool
