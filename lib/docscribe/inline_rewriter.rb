@@ -94,11 +94,74 @@ module Docscribe
       def dispatch_rewrite_insertions(pipeline, buffer, **options)
         pipeline[:all].sort_by { |(kind, ins)| plugin_insertion_pos(kind, ins) }
                       .reverse_each do |kind, ins|
-          method_name = :"dispatch_#{kind}_insertion"
-          send(method_name, ins, pipeline, buffer, **options) if respond_to?(method_name, true)
+          dispatch_single_insertion(kind, ins, pipeline, buffer, **options)
         end
 
         apply_merge_inserts!(rewriter: pipeline[:rewriter], buffer: buffer, merge_inserts: pipeline[:merge_inserts])
+      end
+
+      # Dispatch a single insertion, isolating per-method failures.
+      #
+      # A crash while documenting one method (e.g., unexpected AST shape)
+      # must not discard warnings for the rest of the file: the error is
+      # reported to stderr and the remaining insertions still apply.
+      #
+      # @param [Symbol] kind insertion kind (:method, :attr, :plugin)
+      # @param [Object] ins the insertion object
+      # @param [Docscribe::InlineRewriter::pipeline] pipeline the pipeline hash with rewriter, insertions, and tracking state
+      # @param [Parser::Source::Buffer] buffer the source buffer being rewritten
+      # @param [Hash] options additional kwargs (config, signature_provider, core_rbs_provider, strategy, file)
+      # @raise [StandardError]
+      # @return [void]
+      def dispatch_single_insertion(kind, ins, pipeline, buffer, **options)
+        method_name = :"dispatch_#{kind}_insertion"
+        return unless respond_to?(method_name, true)
+
+        send(method_name, ins, pipeline, buffer, **options)
+      rescue StandardError => e
+        warn_insertion_error(kind, ins, options[:file], e)
+      end
+
+      # Report a skipped insertion to stderr without interrupting the rewrite.
+      #
+      # @param [Symbol] kind insertion kind (:method, :attr, :plugin)
+      # @param [Object] ins the insertion object
+      # @param [String, nil] file the file being rewritten
+      # @param [StandardError] error the rescued error
+      # @return [void]
+      def warn_insertion_error(kind, ins, file, error)
+        warn "Docscribe: skipping #{insertion_label(kind, ins)} in #{file}: #{error.class}: #{error.message}"
+      end
+
+      # Human-readable label for an insertion used in skip warnings.
+      #
+      # @param [Symbol] kind insertion kind (:method, :attr, :plugin)
+      # @param [Object] ins the insertion object
+      # @return [String] label like "method foo at line 12"
+      def insertion_label(kind, ins)
+        node = insertion_node(ins)
+        name = node ? SourceHelpers.node_name(node) : nil
+        line = node_line(node)
+        label = name ? "#{kind} #{name}" : kind.to_s
+        line ? "#{label} at line #{line}" : label
+      end
+
+      # Extract the AST node from an insertion when available.
+      #
+      # @param [Object] ins the insertion object
+      # @return [Parser::AST::Node, nil] the node or nil
+      def insertion_node(ins)
+        ins.respond_to?(:node) ? ins.node : nil
+      end
+
+      # Source line of a node expression when available.
+      #
+      # @param [Parser::AST::Node, nil] node an AST node
+      # @return [Integer, nil] 1-based line number or nil
+      def node_line(node)
+        loc = node&.loc
+        expr = loc&.expression
+        expr&.line
       end
 
       # Dispatch method insertion

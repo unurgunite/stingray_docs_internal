@@ -21,6 +21,16 @@ module Docscribe
 
     def self.dispatch_rewrite_insertions: (pipeline pipeline, Parser::Source::Buffer buffer, ?config: Config, ?signature_provider: Types::ProviderChain?, ?core_rbs_provider: Types::RBS::Provider?, ?strategy: Symbol, ?file: String) -> void
 
+    def self.dispatch_single_insertion: (Symbol kind, untyped ins, pipeline pipeline, Parser::Source::Buffer buffer, ?config: Config, ?signature_provider: Types::ProviderChain?, ?core_rbs_provider: Types::RBS::Provider?, ?strategy: Symbol, ?file: String) -> void
+
+    def self.warn_insertion_error: (Symbol kind, untyped ins, (String | nil) file, StandardError error) -> void
+
+    def self.insertion_label: (Symbol kind, untyped ins) -> String
+
+    def self.insertion_node: (untyped ins) -> (Parser::AST::Node | nil)
+
+    def self.node_line: ((Parser::AST::Node | nil) node) -> (Integer | nil)
+
     def self.dispatch_method_insertion: (Collector::Insertion ins, pipeline pipeline, Parser::Source::Buffer buffer, ?config: Config, ?signature_provider: Types::ProviderChain?, ?core_rbs_provider: Types::RBS::Provider?, ?strategy: Symbol, ?file: String) -> void
 
     def self.dispatch_attr_insertion: (Collector::AttrInsertion ins, pipeline pipeline, Parser::Source::Buffer buffer, ?config: Config, ?signature_provider: Types::ProviderChain?, ?strategy: Symbol, ?file: String) -> void
