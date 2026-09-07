@@ -32,6 +32,36 @@ RSpec.describe Docscribe::InlineRewriter::DocBuilder do
     end
   end
 
+  describe 'fallback rescue types are not emitted' do
+    subject(:lines) { described_class.send(:build_rescue_return_lines, '# ', specs, conf) }
+
+    let(:conf) { Docscribe::Config.new('emit' => { 'rescue_conditional_returns' => true }) }
+
+    context 'when rescue type is bare Object fallback' do
+      let(:specs) { [[%w[StandardError], 'Object']] }
+
+      it { is_expected.to eq([]) }
+    end
+
+    context 'when rescue type is blank' do
+      let(:specs) { [[%w[StandardError], '']] }
+
+      it { is_expected.to eq([]) }
+    end
+
+    context 'when rescue type is informative' do
+      let(:specs) { [[%w[StandardError], 'String']] }
+
+      it { is_expected.to eq(['# # @return [String] if StandardError']) }
+    end
+
+    context 'when rescue type is nil' do
+      let(:specs) { [[%w[StandardError], 'nil']] }
+
+      it { is_expected.to eq(['# # @return [nil] if StandardError']) }
+    end
+  end
+
   describe 'check stability with conditional present' do
     subject(:messages) { report[:changes].map { |c| c[:message] } }
 

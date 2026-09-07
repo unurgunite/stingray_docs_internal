@@ -17,7 +17,7 @@ module Docscribe
       # @param [String?] method_source full method definition source
       # @raise [Parser::SyntaxError]
       # @return [String]
-      # @return [String] if Parser::SyntaxError
+      # @return [Object] if Parser::SyntaxError
       def infer_return_type(method_source)
         return FALLBACK_TYPE if method_source.nil? || method_source.strip.empty?
 
