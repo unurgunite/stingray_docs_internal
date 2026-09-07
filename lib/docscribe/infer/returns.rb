@@ -68,21 +68,33 @@ module Docscribe
       # @param [String] fallback_type type used when inference is uncertain
       # @param [Boolean] nil_as_optional whether `nil` unions should be rendered as optional types
       # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider core RBS type lookup provider
-      # @param [Hash<String, String>?] param_types parameter name -> type map
-      # @param [String?] container
-      # @param [Docscribe::Types::ProviderChain?] signature_provider
+      # @param [Hash] opts
       # @return [Hash<Symbol, Object>]
-      def returns_spec_from_node(node, fallback_type: FALLBACK_TYPE, nil_as_optional: true, core_rbs_provider: nil, # rubocop:disable Metrics/ParameterLists
-                                 param_types: nil, container: nil, signature_provider: nil)
+      def returns_spec_from_node(node, fallback_type: FALLBACK_TYPE, nil_as_optional: true,
+                                 core_rbs_provider: nil, **opts)
         body = extract_def_body(node)
         spec = { normal: FALLBACK_TYPE, rescues: [] } #: Hash[Symbol, untyped]
         return spec unless body
 
-        types = build_local_variable_types(body, core_rbs_provider: core_rbs_provider, param_types: param_types)
-        populate_returns_spec(spec, body, types, fallback_type: fallback_type, nil_as_optional: nil_as_optional,
-                                                 core_rbs_provider: core_rbs_provider, param_types: param_types,
-                                                 container: container, signature_provider: signature_provider)
+        populate_spec_with_types(spec, body, fallback_type: fallback_type, nil_as_optional: nil_as_optional,
+                                             core_rbs_provider: core_rbs_provider, **opts)
         spec
+      end
+
+      # @note module_function: defines #populate_spec_with_types (visibility: private)
+      # @param [Hash<Symbol, Object>] spec
+      # @param [Parser::AST::Node] body
+      # @param [String?] fallback_type
+      # @param [Boolean] nil_as_optional
+      # @param [Hash] opts
+      # @return [void]
+      def populate_spec_with_types(spec, body, fallback_type: FALLBACK_TYPE, nil_as_optional: true, **opts)
+        core_rbs_provider = opts[:core_rbs_provider]
+        types = build_local_variable_types(body, core_rbs_provider: core_rbs_provider,
+                                                 param_types: opts[:param_types])
+        populate_returns_spec(spec, body, types, fallback_type: fallback_type, nil_as_optional: nil_as_optional,
+                                                 core_rbs_provider: core_rbs_provider, param_types: opts[:param_types],
+                                                 container: opts[:container], signature_provider: opts[:signature_provider])
       end
 
       # Extract the body child node from a `:def` or `:defs` AST node.
@@ -892,8 +904,8 @@ module Docscribe
       # @param [String] token
       # @return [Boolean]
       def placeholder_token?(token)
-        token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
-          (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token))
+        !!(token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
+          (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token)))
       end
 
       # Handle `:send` node for last_expr_type.
@@ -905,16 +917,179 @@ module Docscribe
       def handle_send_node(node, **opts)
         recv = node.children[0]
         meth = node.children[1]
-        rbs = send_rbs_type(recv, meth, **opts) if opts[:core_rbs_provider]
-        return rbs if rbs
+        try_synthetic(node, meth, recv, **opts) ||
+          try_rbs(meth, recv, **opts) ||
+          try_compound(node, **opts) ||
+          string_send_type(meth, recv) ||
+          rbs_fallback(meth, recv, **opts) ||
+          Literals.type_from_literal(node, fallback_type: opts[:fallback_type])
+      end
 
-        compound = infer_from_compound_assign(node, **opts)
-        return compound if compound
+      # @note module_function: defines #try_synthetic (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def try_synthetic(node, meth, recv, **opts)
+        synthetic_enumerator_type(node, meth, recv, **opts) ||
+          synthetic_hash_type(node, meth, recv, **opts)
+      end
 
-        str = string_send_type(meth, recv)
-        return str if str
+      # @note module_function: defines #try_rbs (visibility: private)
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def try_rbs(meth, recv, **opts)
+        return nil unless opts[:core_rbs_provider]
 
-        Literals.type_from_literal(node, fallback_type: opts[:fallback_type])
+        rbs = send_rbs_type(recv, meth, **opts)
+        return rbs if rbs && rbs != FALLBACK_TYPE && !rbs.include?('Object')
+
+        nil
+      end
+
+      # @note module_function: defines #try_compound (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Hash] opts
+      # @return [String, nil]
+      def try_compound(node, **opts)
+        infer_from_compound_assign(node, **opts)
+      end
+
+      # @note module_function: defines #rbs_fallback (visibility: private)
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def rbs_fallback(meth, recv, **opts)
+        return nil unless opts[:core_rbs_provider]
+
+        send_rbs_type(recv, meth, **opts)
+      end
+
+      # @note module_function: defines #synthetic_enumerator_type (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def synthetic_enumerator_type(node, meth, recv, **opts)
+        return unless meth == :each_with_index && node.children.size == 2
+
+        elem = enumerator_elem_from_recv(recv, **opts)
+        return "Enumerator<#{elem}, Integer>" if elem
+
+        'Enumerator<Object, Integer>'
+      end
+
+      # @note module_function: defines #enumerator_elem_from_recv (visibility: private)
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def enumerator_elem_from_recv(recv, **opts)
+        recv_type = enumerator_recv_type(recv, **opts)
+        return nil unless recv_type
+
+        extract_array_elem_strict(recv_type) || enumerator_object_elem(recv_type)
+      end
+
+      # @note module_function: defines #enumerator_recv_type (visibility: private)
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def enumerator_recv_type(recv, **opts)
+        receiver_rbs_type_name(recv, opts[:core_rbs_provider], opts[:local_var_types],
+                               opts[:param_types]) ||
+          run_last_expr_type(recv, fallback_type: nil, nil_as_optional: false,
+                                   local_var_types: opts[:local_var_types],
+                                   param_types: opts[:param_types],
+                                   core_rbs_provider: opts[:core_rbs_provider],
+                                   signature_provider: opts[:signature_provider],
+                                   container: opts[:container])
+      end
+
+      # @note module_function: defines #extract_array_elem_strict (visibility: private)
+      # @param [String] type_str
+      # @return [String, nil]
+      def extract_array_elem_strict(type_str)
+        return nil unless type_str =~ /\AArray<(.+)>\z/
+
+        Regexp.last_match(1).strip
+      end
+
+      # @note module_function: defines #enumerator_object_elem (visibility: private)
+      # @param [String] recv_type
+      # @return [String, nil]
+      def enumerator_object_elem(recv_type)
+        return 'Object' if recv_type == 'Array'
+
+        nil
+      end
+
+      # @note module_function: defines #synthetic_hash_type (visibility: private)
+      # @param [Parser::AST::Node] _node
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def synthetic_hash_type(_node, meth, recv, **opts)
+        return unless meth == :to_h && recv && recv.type == :send && recv.children[1] == :each_with_index
+
+        inner_recv = recv.children[0]
+        elem = hash_elem_from_enumerator(inner_recv, **opts) || 'String'
+        "Hash<#{elem}, Integer>"
+      end
+
+      # @note module_function: defines #hash_elem_from_enumerator (visibility: private)
+      # @param [Parser::AST::Node, nil] inner_recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def hash_elem_from_enumerator(inner_recv, **opts)
+        inner_type = hash_inner_type(inner_recv, **opts)
+        return nil unless inner_type
+
+        extract_array_elem(inner_type) || extract_enumerator_elem(inner_type)
+      end
+
+      # @note module_function: defines #hash_inner_type (visibility: private)
+      # @param [Parser::AST::Node, nil] inner_recv
+      # @param [Hash] opts
+      # @return [String, nil]
+      def hash_inner_type(inner_recv, **opts)
+        receiver_rbs_type_name(inner_recv, opts[:core_rbs_provider], opts[:local_var_types],
+                               opts[:param_types]) ||
+          run_last_expr_type(inner_recv, fallback_type: nil, nil_as_optional: false,
+                                         local_var_types: opts[:local_var_types],
+                                         param_types: opts[:param_types],
+                                         core_rbs_provider: opts[:core_rbs_provider],
+                                         signature_provider: opts[:signature_provider],
+                                         container: opts[:container])
+      end
+
+      # @note module_function: defines #extract_array_elem (visibility: private)
+      # @param [String] type_str
+      # @return [String, nil]
+      def extract_array_elem(type_str)
+        return nil unless type_str =~ /\AArray<(.+)>\z/
+
+        cand = Regexp.last_match(1).strip
+        return nil if cand.empty? || %w[Object untyped].include?(cand)
+
+        cand
+      end
+
+      # @note module_function: defines #extract_enumerator_elem (visibility: private)
+      # @param [String] type_str
+      # @return [String, nil]
+      def extract_enumerator_elem(type_str)
+        return nil unless type_str =~ /\AEnumerator<(.+),\s*Integer>\z/
+
+        cand = Regexp.last_match(1).strip
+        return nil if cand.empty?
+
+        cand
       end
 
       # @note module_function: defines #string_send_type (visibility: private)
@@ -1359,14 +1534,25 @@ module Docscribe
       def receiver_dispatch_type(recv, core_rbs_provider, local_var_types, param_types)
         return nil unless recv.is_a?(Parser::AST::Node)
 
-        case recv&.type
-        when :send, :csend
-          receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
-        when :or, :and
-          receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
-        when :begin
-          receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
+        case recv.type
+        when :send, :csend then receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
+        when :block then block_receiver_type(recv, core_rbs_provider, local_var_types, param_types)
+        when :or, :and then receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
+        when :begin then receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
         end
+      end
+
+      # @note module_function: defines #block_receiver_type (visibility: private)
+      # @param [Parser::AST::Node] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
+      # @return [String, nil]
+      def block_receiver_type(recv, core_rbs_provider, local_var_types, param_types)
+        run_last_expr_type(recv, fallback_type: FALLBACK_TYPE, nil_as_optional: false,
+                                 core_rbs_provider: core_rbs_provider, local_var_types: local_var_types,
+                                 param_types: param_types) ||
+          receiver_send_type(recv.children[0], core_rbs_provider, local_var_types, param_types)
       end
 
       # @note module_function: defines #receiver_begin_type (visibility: private)

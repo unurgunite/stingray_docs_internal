@@ -40,7 +40,7 @@ module Docscribe
         def parse_union
           types = [parse_intersection]
           skip_space
-          while @i < @s.length && @s[@i] == ','
+          while peek == ','
             @i += 1
             skip_space
             types << parse_intersection
@@ -54,7 +54,7 @@ module Docscribe
         def parse_intersection
           types = [parse_optional]
           skip_space
-          while @i < @s.length && @s[@i] == '&'
+          while peek == '&'
             @i += 1
             skip_space
             types << parse_optional
@@ -68,7 +68,7 @@ module Docscribe
         def parse_optional
           type = parse_primary
           skip_space
-          if @i < @s.length && @s[@i] == '?'
+          if peek == '?'
             @i += 1
             Optional.new(type: type)
           else
@@ -96,9 +96,9 @@ module Docscribe
           return Literal.new(value: name) if literal?(name)
 
           skip_space
-          if @i < @s.length && @s[@i] == '<'
+          if peek == '<'
             parse_generic(Named.new(name: name))
-          elsif @i < @s.length && @s[@i] == '{'
+          elsif peek == '{'
             parse_named_hash_map
           else
             Named.new(name: name)
@@ -111,7 +111,7 @@ module Docscribe
         def parse_generic(base)
           @i += 1
           args = parse_generic_args
-          @i += 1 if @i < @s.length && @s[@i] == '>'
+          @i += 1 if peek == '>'
           Generic.new(base: base.name, args: args)
         end
 
@@ -120,7 +120,7 @@ module Docscribe
         def parse_generic_arg
           types = [parse_intersection]
           skip_space
-          while @i < @s.length && @s[@i] == '|'
+          while peek == '|'
             @i += 1
             skip_space
             types << parse_intersection
@@ -134,10 +134,10 @@ module Docscribe
         def parse_generic_args
           args = [] #: Array[untyped]
           skip_space
-          while @i < @s.length && @s[@i] != '>'
+          while peek && peek != '>'
             args << parse_generic_arg
             skip_space
-            next unless @i < @s.length && @s[@i] == ','
+            next unless peek == ','
 
             @i += 1
             skip_space
@@ -150,11 +150,11 @@ module Docscribe
         def parse_tuple
           @i += 1
           types = [] #: Array[untyped]
-          while @i < @s.length && @s[@i] != ')'
+          while peek && peek != ')'
             types << parse_tuple_element
-            @i += 1 and skip_space if @s[@i] == ','
+            @i += 1 and skip_space if peek == ','
           end
-          @i += 1 if @s[@i] == ')'
+          @i += 1 if peek == ')'
           Tuple.new(types: types)
         end
 
@@ -163,7 +163,7 @@ module Docscribe
         def parse_tuple_element
           type = parse_intersection
           skip_space
-          if @i < @s.length && @s[@i] == '?'
+          if peek == '?'
             @i += 1
             Optional.new(type: type)
           else
@@ -176,9 +176,9 @@ module Docscribe
         def parse_hash_map
           @i += 1
           key = parse_union
-          @i += 2 if @s[@i..(@i + 1)] == '=>'
+          @i += 2 if @s[@i, 2] == '=>'
           value = parse_union
-          @i += 1 if @s[@i] == '}'
+          @i += 1 if peek == '}'
           HashMap.new(key_type: key, value_type: value)
         end
 
@@ -192,7 +192,7 @@ module Docscribe
         # @return [Docscribe::Types::Yard::Duck]
         def parse_duck_type
           methods = [] #: Array[String]
-          while @i < @s.length && @s[@i] == '#'
+          while peek == '#'
             @i += 1
             name = scan_name
             methods << name
@@ -205,7 +205,12 @@ module Docscribe
         # @return [String]
         def scan_name
           start = @i
-          @i += 1 while @i < @s.length && name_char?(@s[@i])
+          loop do
+            c = peek
+            break unless c && name_char?(c)
+
+            @i += 1
+          end
           @s[start...@i]
         end
 
@@ -226,13 +231,13 @@ module Docscribe
         # @private
         # @return [void]
         def skip_space
-          @i += 1 while @i < @s.length && @s[@i].match?(/\s/)
+          @i += 1 while peek&.match?(/\s/)
         end
 
         # @private
         # @return [String?]
-        def peek
-          @i < @s.length ? @s[@i] : nil
+        def peek #: String?
+          @s[@i]
         end
       end
     end

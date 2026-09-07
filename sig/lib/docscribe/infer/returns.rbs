@@ -11,6 +11,8 @@ module Docscribe
 
       def self?.returns_spec_from_node: (Parser::AST::Node node, ?fallback_type: String, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> Hash[Symbol, untyped]
 
+      def self?.populate_spec_with_types: (Hash[Symbol, untyped] spec, Parser::AST::Node body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> void
+
       def self?.extract_def_body: (Parser::AST::Node node) -> (Parser::AST::Node | nil)
 
       def self?.populate_returns_spec: (Hash[Symbol, untyped] spec, Parser::AST::Node body, Hash[String, String]? local_var_types, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> void
@@ -92,6 +94,34 @@ module Docscribe
       def self?.generic_placeholder?: ((String | nil) rbs_type) -> bool
 
       def self?.handle_send_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.synthetic_enumerator_type: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.synthetic_hash_type: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.try_synthetic: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.try_rbs: (Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.try_compound: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.rbs_fallback: (Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.enumerator_elem_from_recv: ((Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.enumerator_recv_type: ((Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.extract_array_elem_strict: (String type_str) -> (String | nil)
+
+      def self?.enumerator_object_elem: (String recv_type) -> (String | nil)
+
+      def self?.hash_elem_from_enumerator: ((Parser::AST::Node | nil) inner_recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.hash_inner_type: ((Parser::AST::Node | nil) inner_recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.extract_array_elem: (String type_str) -> (String | nil)
+
+      def self?.extract_enumerator_elem: (String type_str) -> (String | nil)
 
       def self?.resolve_rbs_for_send: ((Parser::AST::Node | nil) recv, Symbol meth, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
 
@@ -246,6 +276,8 @@ module Docscribe
       def self?.resolve_self_via_rbs?: (String base, Symbol meth, Types::RBS::Provider? provider) -> bool
 
       def self?.receiver_dispatch_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.block_receiver_type: (Parser::AST::Node recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
 
       def self?.receiver_begin_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
 
