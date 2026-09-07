@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# rubocop:disable Style/EmptyElse, Lint/DuplicateBranch, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Lint/RedundantCopDisableDirective, Lint/MissingCopEnableDirective, Layout/EmptyLineAfterMagicComment
 module Docscribe
   module Infer
     # Exception inference from AST (`raise`/`fail` calls and `rescue` clauses).
@@ -20,17 +19,14 @@ module Docscribe
       # @note module_function: defines #infer_raises_from_node (visibility: private)
       # @param [Parser::AST::Node] node method or expression node to inspect
       # @return [Array<String>]
-      def infer_raises_from_node(node) # rubocop:disable Metrics/MethodLength
+      def infer_raises_from_node(node)
         raises = [] #: Array[String]
 
         ASTWalk.walk(node) do |n|
-          case n&.type # rubocop:disable Style/EmptyElse
-          when :resbody
+          if n&.type == :resbody
             raises.concat(exception_names_from_rescue_list(n.children[0]))
-          when :send
+          elsif n&.type == :send
             collect_send_raise(raises, n)
-          else
-            # no-op for other node types
           end
         end
 
@@ -47,15 +43,13 @@ module Docscribe
       # @note module_function: defines #exception_names_from_rescue_list (visibility: private)
       # @param [Parser::AST::Node, nil] exc_list rescue exception list node
       # @return [Array<String>]
-      def exception_names_from_rescue_list(exc_list) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Lint/DuplicateBranch
-        if exc_list.nil?
-          [DEFAULT_ERROR]
-        elsif exc_list.is_a?(Parser::AST::Node) && exc_list&.type == :array
-          (exc_list&.children || []).map { |e| Names.const_full_name(e) || DEFAULT_ERROR }
-        elsif exc_list.is_a?(Parser::AST::Node)
-          [Names.const_full_name(exc_list) || DEFAULT_ERROR]
+      def exception_names_from_rescue_list(exc_list)
+        return [DEFAULT_ERROR] unless exc_list.is_a?(Parser::AST::Node)
+
+        if exc_list.type == :array
+          exc_list.children.map { |e| Names.const_full_name(e) || DEFAULT_ERROR }
         else
-          [DEFAULT_ERROR]
+          [Names.const_full_name(exc_list) || DEFAULT_ERROR]
         end
       end
 

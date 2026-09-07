@@ -48,46 +48,55 @@ module Docscribe
           end
         end
 
-        # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        # @param [String, nil] yard_type
+        # @param [String, nil] expected_type
+        # @param [String] fallback_type
+        # @param [String, Symbol, nil] _method_name
+        # @return [Boolean]
         def union_parts_compatible?(yard_type, expected_type, fallback_type, _method_name)
           yt = yard_type.to_s
           et = expected_type.to_s
           return false unless yt.include?(',') || et.include?(',')
 
-          parts_yard = yt.include?(',') ? split_top_level_commas_local(yt).map { |p| normalize(p) } : [normalize(yt)]
-          parts_expected = et.include?(',') ? split_top_level_commas_local(et).map { |p| normalize(p) } : [normalize(et)]
-          # If yard is single and expected is union, check if any expected part compatible with yard via non-union checks
-          if parts_yard.size == 1 && parts_expected.size > 1
-            return parts_expected.any? do |part|
-              single = parts_yard.first
-              CHECKS.any? do |name, checker|
-                next if %i[union_containment fallback_union].include?(name)
+          parts_yard = union_parts(yt)
+          parts_expected = union_parts(et)
 
-                if name == :fallback_union
-                  send(checker, single, part, fallback_type)
-                else
-                  send(checker, single, part)
-                end || single == part
-              end
-            end
-          end
-          if parts_expected.size == 1 && parts_yard.size > 1
-            return parts_yard.any? do |part|
-              single = parts_expected.first
-              CHECKS.any? do |name, checker|
-                next if %i[union_containment fallback_union].include?(name)
+          return true if single_vs_union?(parts_yard, parts_expected, fallback_type)
+          return true if single_vs_union?(parts_expected, parts_yard, fallback_type)
 
-                if name == :fallback_union
-                  send(checker, part, single, fallback_type)
-                else
-                  send(checker, part, single)
-                end || part == single
-              end
-            end
+          false
+        end
+
+        # @param [String] str
+        # @return [Array<String>]
+        def union_parts(str)
+          str.include?(',') ? split_top_level_commas_local(str).map { |p| normalize(p) } : [normalize(str)]
+        end
+
+        # @param [Array<String>] single_parts
+        # @param [Array<String>] union_parts
+        # @param [String] fallback_type
+        # @return [Boolean]
+        def single_vs_union?(single_parts, union_parts, fallback_type)
+          return false unless single_parts.size == 1 && union_parts.size > 1
+
+          single = single_parts.first
+          union_parts.any? { |part| part_compatible_with_single?(single, part, fallback_type) }
+        end
+
+        # @param [String] single
+        # @param [String] part
+        # @param [String] fallback_type
+        # @return [Boolean]
+        def part_compatible_with_single?(single, part, fallback_type)
+          CHECKS.any? do |name, checker|
+            next if %i[union_containment fallback_union].include?(name)
+
+            compatible = name == :fallback_union ? send(checker, single, part, fallback_type) : send(checker, single, part)
+            return true if compatible || single == part
           end
           false
         end
-        # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
         # Whether void YARD type is compatible with expected type.
         #
@@ -100,25 +109,40 @@ module Docscribe
         # @param [String] fallback_type fallback type for union checks
         # @param [String, Symbol, nil] method_name method name for dynamic check
         # @return [Boolean] true if void compatibility holds
-        def void_compatible?(yard_type, expected_type, fallback_type = 'Object', method_name: nil) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize
+        def void_compatible?(yard_type, expected_type, fallback_type = 'Object', method_name: nil)
           return false unless normalize(yard_type) == 'void'
-
-          return true if fallback_union?(expected_type, fallback_type) ||
-                         %w[nil void].include?(normalize(expected_type))
-
-          if method_name.to_s =~ /initialize|setup/
-            norm = normalize(expected_type).delete_suffix('?').strip
-            return true if norm == 'Hash' || norm.start_with?('Hash<') || norm.start_with?('Hash[')
-            return true if %w[self Boolean].include?(norm)
-          end
-
-          if method_name.to_s.end_with?('?')
-            norm = normalize(expected_type).delete_suffix('?').strip
-            return true if norm == 'Boolean'
-          end
+          return true if void_fallback_or_nil?(expected_type, fallback_type)
+          return true if void_initialize_compatible?(expected_type, method_name)
+          return true if void_predicate_compatible?(expected_type, method_name)
 
           false
-        end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize
+        end
+
+        # @param [String, nil] expected_type
+        # @param [String] fallback_type
+        # @return [Boolean]
+        def void_fallback_or_nil?(expected_type, fallback_type)
+          fallback_union?(expected_type, fallback_type) || %w[nil void].include?(normalize(expected_type))
+        end
+
+        # @param [String, nil] expected_type
+        # @param [String, Symbol, nil] method_name
+        # @return [Boolean]
+        def void_initialize_compatible?(expected_type, method_name)
+          return false unless method_name.to_s =~ /initialize|setup/
+
+          norm = normalize(expected_type).delete_suffix('?').strip
+          norm == 'Hash' || norm.start_with?('Hash<') || norm.start_with?('Hash[') || %w[self Boolean].include?(norm)
+        end
+
+        # @param [String, nil] expected_type
+        # @param [String, Symbol, nil] method_name
+        # @return [Boolean]
+        def void_predicate_compatible?(expected_type, method_name)
+          return false unless method_name.to_s.end_with?('?')
+
+          normalize(expected_type).delete_suffix('?').strip == 'Boolean'
+        end
 
         # Whether either type is a fallback-only union for the given fallback type.
         #
@@ -495,23 +519,28 @@ module Docscribe
         # @param [String, nil] yard_type YARD type string
         # @param [String, nil] expected_type inferred/RBS type string
         # @return [Boolean] true if Object supertype compatibility holds
-        def object_compatible?(yard_type, expected_type) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+        def object_compatible?(yard_type, expected_type)
           yard_canonical = optional_canonical_parts(yard_type)
           exp_canonical = optional_canonical_parts(expected_type)
           return false if yard_canonical.empty? || exp_canonical.empty?
 
           yard_without_nil = canonical_without_nil(yard_canonical)
           exp_without_nil = canonical_without_nil(exp_canonical)
-          if (exp_without_nil == ['Object'] && yard_without_nil != ['Object'] && !yard_without_nil.empty?) ||
-             (yard_without_nil == ['Object'] && exp_without_nil != ['Object'] && !exp_without_nil.empty?)
-            return yard_canonical.include?('nil') == exp_canonical.include?('nil')
-          end
+          return false unless object_supertype_pair?(yard_without_nil, exp_without_nil)
 
-          false
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+          yard_canonical.include?('nil') == exp_canonical.include?('nil')
+        end
 
-        # @param [Object] canonical
-        # @return [Object]
+        # @param [Array<String>] yard_without_nil
+        # @param [Array<String>] exp_without_nil
+        # @return [Boolean]
+        def object_supertype_pair?(yard_without_nil, exp_without_nil)
+          (exp_without_nil == ['Object'] && yard_without_nil != ['Object'] && !yard_without_nil.empty?) ||
+            (yard_without_nil == ['Object'] && exp_without_nil != ['Object'] && !exp_without_nil.empty?)
+        end
+
+        # @param [Array<String>] canonical
+        # @return [Array<String>]
         def canonical_without_nil(canonical)
           canonical.reject { |p| p == 'nil' }
         end
@@ -520,18 +549,50 @@ module Docscribe
         #
         # @param [String, nil] str raw type string
         # @return [Array<String>] sorted unique normalized parts
-        def optional_canonical_parts(str) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
-          return [] if str.nil? || str.to_s.strip.empty?
+        def optional_canonical_parts(str)
+          return [] if str.nil? || empty_str?(str)
 
-          s = str.to_s.gsub('|', ',').strip
-          # Single optional without comma: "String?" => ["String", "nil"]
-          if s.end_with?('?') && !s.include?(',')
-            base = normalize(s.delete_suffix('?').strip)
-            return [base, 'nil'].sort
-          end
+          s = normalized_union_str(str)
+          return single_optional_parts(s) if single_optional_form?(s)
 
-          parts = split_top_level_commas_local(s)
-          expanded = parts.flat_map do |part|
+          canonicalize_parts(split_top_level_commas_local(s))
+        end
+
+        # @param [String, nil] str
+        # @return [Boolean]
+        def empty_str?(str)
+          str.to_s.strip.empty?
+        end
+
+        # @param [String, nil] str
+        # @return [String]
+        def normalized_union_str(str)
+          str.to_s.gsub('|', ',').strip
+        end
+
+        # @param [String] str
+        # @return [Boolean]
+        def single_optional_form?(str)
+          str.end_with?('?') && !str.include?(',')
+        end
+
+        # @param [Array<String>] parts
+        # @return [Array<String>]
+        def canonicalize_parts(parts)
+          expand_optional_parts(parts).map { |part| normalize(part) }.reject(&:empty?).uniq.sort
+        end
+
+        # @param [String] str
+        # @return [Array<String>]
+        def single_optional_parts(str)
+          base = normalize(str.delete_suffix('?').strip)
+          [base, 'nil'].sort
+        end
+
+        # @param [Array<String>] parts
+        # @return [Array<String>]
+        def expand_optional_parts(parts)
+          parts.flat_map do |part|
             stripped = part.strip
             if stripped.end_with?('?')
               [normalize(stripped.delete_suffix('?').strip), 'nil']
@@ -539,8 +600,7 @@ module Docscribe
               [normalize(stripped)]
             end
           end
-          expanded.map { |part| normalize(part) }.reject(&:empty?).uniq.sort
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        end
 
         # Split by top-level commas outside `< > [ ] ( )` (generic-aware).
         #
@@ -548,42 +608,47 @@ module Docscribe
         #
         # @param [String] str type string to split
         # @return [Array<String>] parts split on top-level commas
-        def split_top_level_commas_local(str) # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
+        def split_top_level_commas_local(str)
           state = { parts: [], cur: +'', da: 0, db: 0, dp: 0 } #: Hash[Symbol, untyped]
-          str.each_char do |chr| # rubocop:disable Metrics/BlockLength
-            case chr
-            when '<'
-              state[:da] += 1
-              state[:cur] << chr
-            when '>'
-              state[:da] -= 1
-              state[:cur] << chr
-            when '['
-              state[:db] += 1
-              state[:cur] << chr
-            when ']'
-              state[:db] -= 1
-              state[:cur] << chr
-            when '('
-              state[:dp] += 1
-              state[:cur] << chr
-            when ')'
-              state[:dp] -= 1
-              state[:cur] << chr
-            when ','
-              if state[:da].zero? && state[:db].zero? && state[:dp].zero?
-                state[:parts] << state[:cur]
-                state[:cur] = +''
-              else
-                state[:cur] << ','
-              end
-            else
-              state[:cur] << chr
-            end
-          end # rubocop:enable Metrics/BlockLength
+          str.each_char { |chr| handle_split_char(chr, state) }
           state[:parts] << state[:cur] unless state[:cur].empty?
           state[:parts]
-        end # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength
+        end
+
+        # @param [String] chr
+        # @param [Hash<Symbol, Object>] state
+        # @return [void]
+        def handle_split_char(chr, state)
+          case chr
+          when '<', '>', '[', ']', '(', ')'
+            update_split_depth(chr, state)
+          when ','
+            handle_split_comma(state)
+          else
+            state[:cur] << chr
+          end
+        end
+
+        # @param [String] chr
+        # @param [Hash<Symbol, Object>] state
+        # @return [void]
+        def update_split_depth(chr, state)
+          deltas = { '<' => [:da, 1], '>' => [:da, -1], '[' => [:db, 1], ']' => [:db, -1], '(' => [:dp, 1], ')' => [:dp, -1] }
+          key, delta = deltas[chr]
+          state[key] += delta if key
+          state[:cur] << chr
+        end
+
+        # @param [Hash<Symbol, Object>] state
+        # @return [void]
+        def handle_split_comma(state)
+          if state[:da].zero? && state[:db].zero? && state[:dp].zero?
+            state[:parts] << state[:cur]
+            state[:cur] = +''
+          else
+            state[:cur] << ','
+          end
+        end
 
         # Method documentation.
         #

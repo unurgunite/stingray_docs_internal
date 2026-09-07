@@ -17,7 +17,7 @@ module Docscribe
       # @param [String] token
       # @return [Boolean]
       def alias_pattern?(token)
-        base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
+        base = normalized_base(token)
         return true if base =~ /\A[a-z]/ || base.include?('::')
         return true if base =~ /\A[A-Z]\z/
 
@@ -41,14 +41,14 @@ module Docscribe
       # @note module_function: defines #alias_token? (visibility: private)
       # @param [String] token single type token
       # @return [Boolean] true if alias
-      def alias_token?(token) # rubocop:disable Metrics/AbcSize
-        base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
+      def alias_token?(token)
+        base = normalized_base(token)
         return false if primitive?(base)
         return true if base =~ /\A[a-z]/ || base.include?('::')
         return true if base =~ /\A[A-Z]\z/
 
         !!(base =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !core_primitives.include?(base))
-      end # rubocop:enable Metrics/AbcSize
+      end
 
       # Whether token is a primitive type (String, Integer, etc) vs alias (Elem, U, ParamTag).
       #
@@ -59,13 +59,20 @@ module Docscribe
       # @param [String] token type token (e.g., "String", "Elem", "ParamTag", "untyped")
       # @return [Boolean] true if primitive, false if alias/generic placeholder
       def primitive?(token)
-        base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
+        base = normalized_base(token)
         return false if base.empty?
         return true if %w[untyped void nil].include?(base)
         # YARD pseudo types that are not real RBS classes but considered primitives
         return true if %w[Boolean void untyped nil].include?(base)
 
         core_primitives.include?(base)
+      end
+
+      # @note module_function: defines #normalized_base (visibility: private)
+      # @param [String] token
+      # @return [String]
+      def normalized_base(token)
+        token.split('<').first.split('[').first.strip.delete_suffix('?').strip
       end
 
       # All core primitive class/module names from RBS environment (String, Array, etc)
@@ -91,32 +98,52 @@ module Docscribe
       end
 
       # @note module_function: defines #load_yard_primitives (visibility: private)
-      # @param [Object] primitives
-      # @return [Object]
+      # @param [Set<String>] primitives
+      # @return [Set<String>]
       def load_yard_primitives(primitives)
         primitives.merge(%w[Boolean void untyped nil true false])
       end
 
       # @note module_function: defines #load_rbs_core (visibility: private)
-      # @param [Object] primitives
+      # @param [Set<String>] primitives
       # @raise [LoadError]
       # @raise [StandardError]
-      # @return [Object?]
-      # @return [Object] if LoadError, StandardError
-      def load_rbs_core(primitives) # rubocop:disable Metrics/AbcSize
+      # @return [Set<String>]
+      # @return [Set<String>] if LoadError, StandardError
+      def load_rbs_core(primitives)
         loader = RBS::EnvironmentLoader.new
         env = RBS::Environment.new
         loader.load(env: env)
-        env.class_decls.each_key { |k| primitives.merge([k.to_s.split('::').last, k.to_s]) } if env.respond_to?(:class_decls)
-        env.interface_decls.each_key { |k| primitives << k.to_s.split('::').last } if env.respond_to?(:interface_decls)
+        populate_class_decls(env, primitives)
+        populate_interface_decls(env, primitives)
       rescue LoadError, StandardError
         primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object Class Module IO File Dir Time Date Enumerator
                             Set Enumerable])
-      end # rubocop:enable Metrics/AbcSize
+      end
+
+      # @note module_function: defines #populate_class_decls (visibility: private)
+      # @param [RBS::Environment] env
+      # @param [Set<String>] primitives
+      # @return [void]
+      def populate_class_decls(env, primitives)
+        return unless env.respond_to?(:class_decls)
+
+        env.class_decls.each_key { |k| primitives.merge([k.to_s.split('::').last, k.to_s]) }
+      end
+
+      # @note module_function: defines #populate_interface_decls (visibility: private)
+      # @param [RBS::Environment] env
+      # @param [Set<String>] primitives
+      # @return [void]
+      def populate_interface_decls(env, primitives)
+        return unless env.respond_to?(:interface_decls)
+
+        env.interface_decls.each_key { |k| primitives << k.to_s.split('::').last }
+      end
 
       # @note module_function: defines #merge_primitives (visibility: private)
-      # @param [Object] primitives
-      # @return [Object]
+      # @param [Set<String>] primitives
+      # @return [Set<String>]
       def merge_primitives(primitives)
         primitives.merge(%w[String Integer Float Numeric Symbol Array Hash Range Regexp Proc Method NilClass TrueClass FalseClass BasicObject Kernel Object])
       end

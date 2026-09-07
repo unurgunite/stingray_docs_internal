@@ -1,12 +1,11 @@
 # frozen_string_literal: true
 
-# rubocop:disable Style/EmptyElse, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize, Lint/DuplicateBranch, Lint/RedundantCopDisableDirective, Lint/MissingCopEnableDirective, Layout/EmptyLineAfterMagicComment
 require_relative '../types/primitive'
 
 module Docscribe
   module Infer
     # Return type inference and rescue-conditional return extraction.
-    module Returns # rubocop:disable Metrics/ModuleLength, Style/EmptyElse, Lint/RedundantCopDisableDirective, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize
+    module Returns
       module_function
 
       # Infer a return type from a full method definition source string.
@@ -95,7 +94,6 @@ module Docscribe
         case node&.type
         when :def then node&.children&.[](2)
         when :defs then node&.children&.[](3)
-        else nil
         end
       end
 
@@ -227,15 +225,11 @@ module Docscribe
       def assignment_name_and_value(node)
         return [nil, nil] unless node.is_a?(Parser::AST::Node)
 
-        case node&.type
-        when :lvasgn, :gvasgn, :ivasgn, :cvasgn
-          [node&.children&.[](0).to_s, node&.children&.[](1)]
-        when :casgn
-          constant_name_and_value(node)
-        when :op_asgn
-          compound_name_and_value(node)
-        else
-          [nil, nil]
+        case node.type
+        when :lvasgn, :gvasgn, :ivasgn, :cvasgn then [node.children[0].to_s, node.children[1]]
+        when :casgn then constant_name_and_value(node)
+        when :op_asgn then compound_name_and_value(node)
+        else [nil, nil]
         end
       end
 
@@ -396,7 +390,6 @@ module Docscribe
         case lhs&.type
         when :lvasgn, :ivasgn, :gvasgn, :cvasgn then lhs&.children&.[](0).to_s
         when :casgn then lhs&.children&.[](1).to_s
-        else nil
         end
       end
 
@@ -413,7 +406,6 @@ module Docscribe
           lookup_lvar_type(name, opts[:local_var_types], opts[:param_types])
         when :ivasgn, :gvasgn, :cvasgn, :casgn
           opts[:local_var_types]&.fetch(name, nil)
-        else nil
         end
       end
 
@@ -769,8 +761,8 @@ module Docscribe
       end
 
       # @note module_function: defines #handle_then_block (visibility: private)
-      # @param [Object] node
-      # @param [Object] meth
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
       # @param [Hash] opts
       # @return [String, nil]
       def handle_then_block(node, meth, **opts)
@@ -780,10 +772,10 @@ module Docscribe
       end
 
       # @note module_function: defines #handle_map_block (visibility: private)
-      # @param [Object] node
-      # @param [Object] meth
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
       # @param [Hash] opts
-      # @return [String]
+      # @return [String, nil]
       def handle_map_block(node, meth, **opts)
         return nil unless %i[map collect].include?(meth)
 
@@ -821,9 +813,9 @@ module Docscribe
       end
 
       # @note module_function: defines #block_generic_substitution (visibility: private)
-      # @param [Object] rbs_type
-      # @param [Object] inner
-      # @return [Object]
+      # @param [String] rbs_type
+      # @param [String, nil] inner
+      # @return [String, nil]
       def block_generic_substitution(rbs_type, inner)
         return nil unless generic_placeholder?(rbs_type)
 
@@ -838,7 +830,7 @@ module Docscribe
       end
 
       # @note module_function: defines #placeholder_tokens (visibility: private)
-      # @param [Object] inner_generic
+      # @param [String] inner_generic
       # @return [Array<String>]
       def placeholder_tokens(inner_generic)
         split_generic_args(inner_generic).select do |arg|
@@ -847,10 +839,10 @@ module Docscribe
       end
 
       # @note module_function: defines #substitute_placeholders (visibility: private)
-      # @param [Object] rbs_type
-      # @param [Object] placeholders
-      # @param [Object] inner
-      # @return [Object]
+      # @param [String] rbs_type
+      # @param [Array<String>] placeholders
+      # @param [String] inner
+      # @return [String]
       def substitute_placeholders(rbs_type, placeholders, inner)
         result = rbs_type.dup
         placeholders.each do |ph|
@@ -861,18 +853,18 @@ module Docscribe
       end
 
       # @note module_function: defines #fallback_generic_substitution (visibility: private)
-      # @param [Object] rbs_type
-      # @param [Object] inner
-      # @return [Object]
+      # @param [String] rbs_type
+      # @param [String] inner
+      # @return [String]
       def fallback_generic_substitution(rbs_type, inner)
         rbs_type.gsub(/\bU\b/, inner).gsub(/\bElem\b/, inner).gsub(/\buntyped\b/, inner)
                 .gsub(/\bV\b/, inner).gsub(/\bT\b/, inner).gsub(/\bE\b/, inner).gsub(/\bK\b/, inner)
       end
 
       # @note module_function: defines #bare_container_type (visibility: private)
-      # @param [Object] rbs_type
-      # @param [Object] inner
-      # @return [String]
+      # @param [String, nil] rbs_type
+      # @param [String] inner
+      # @return [String, nil]
       def bare_container_type(rbs_type, inner)
         return nil unless rbs_type.is_a?(String)
 
@@ -898,8 +890,8 @@ module Docscribe
       end
 
       # @note module_function: defines #placeholder_token? (visibility: private)
-      # @param [Object] token
-      # @return [Boolean, Object, Boolean]
+      # @param [String] token
+      # @return [Boolean]
       def placeholder_token?(token)
         token == 'untyped' || token.include?('::') || token =~ /\A[a-z]/ ||
           (token =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !Docscribe::Types::Primitive.primitive?(token))
@@ -927,9 +919,9 @@ module Docscribe
       end
 
       # @note module_function: defines #string_send_type (visibility: private)
-      # @param [Object] meth
-      # @param [Object] recv
-      # @return [nil]
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @return [String, nil]
       def string_send_type(meth, recv)
         return 'String' if string_like_method?(meth)
         return 'String' if file_join_method?(meth, recv)
@@ -939,24 +931,24 @@ module Docscribe
       end
 
       # @note module_function: defines #string_like_method? (visibility: private)
-      # @param [Object] meth
+      # @param [Symbol] meth
       # @return [Boolean]
       def string_like_method?(meth)
         %i[to_s to_str inspect].include?(meth)
       end
 
       # @note module_function: defines #file_join_method? (visibility: private)
-      # @param [Object] meth
-      # @param [Object] recv
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
       # @return [Boolean]
       def file_join_method?(meth, recv)
         meth == :join && recv&.type == :const && recv&.children&.[](1) == :File
       end
 
       # @note module_function: defines #sub_string_method? (visibility: private)
-      # @param [Object] meth
-      # @param [Object] recv
-      # @return [Boolean, Object, Boolean]
+      # @param [Symbol] meth
+      # @param [Parser::AST::Node, nil] recv
+      # @return [Boolean]
       def sub_string_method?(meth, recv)
         meth == :sub && recv && recv&.type != :const
       end
@@ -1204,10 +1196,10 @@ module Docscribe
       end
 
       # @note module_function: defines #fallback_concrete_type (visibility: private)
-      # @param [Object] left
-      # @param [Object] right
-      # @param [Object] fallback
-      # @return [nil]
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @param [String] fallback
+      # @return [String]
       def fallback_concrete_type(left, right, fallback)
         left_is_fallback = fallback_type?(left, fallback)
         right_is_fallback = fallback_type?(right, fallback)
@@ -1219,11 +1211,11 @@ module Docscribe
       end
 
       # @note module_function: defines #fallback_preferred_side (visibility: private)
-      # @param [Object] left
-      # @param [Object] right
-      # @param [Object] left_is_fallback
-      # @param [Object] right_is_fallback
-      # @return [nil]
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @param [Boolean] left_is_fallback
+      # @param [Boolean] right_is_fallback
+      # @return [String, nil]
       def fallback_preferred_side(left, right, left_is_fallback, right_is_fallback)
         return right.to_s if left_is_fallback && !right_is_fallback && right
         return left.to_s if right_is_fallback && !left_is_fallback && left
@@ -1232,8 +1224,8 @@ module Docscribe
       end
 
       # @note module_function: defines #fallback_type? (visibility: private)
-      # @param [Object] type
-      # @param [Object] fallback
+      # @param [String, nil] type
+      # @param [String] fallback
       # @return [Boolean]
       def fallback_type?(type, fallback)
         type.nil? || fallback_alias?(type, fallback)
@@ -1251,7 +1243,7 @@ module Docscribe
         str = stripped_union_type(str) || str if str.include?(',')
         cleaned = str.delete_suffix('?').strip
         cleaned.empty? ? nil : cleaned
-      end # rubocop:enable SortedMethodsByCall/Waterfall
+      end
 
       # @note module_function: defines #synthesize_shovel_type (visibility: private)
       # @param [String, nil] left
@@ -1285,9 +1277,9 @@ module Docscribe
       end
 
       # @note module_function: defines #resolve_self_via_rbs? (visibility: private)
-      # @param [Object] base
-      # @param [Object] meth
-      # @param [Object] provider
+      # @param [String] base
+      # @param [Symbol] meth
+      # @param [Docscribe::Types::RBS::Provider?] provider
       # @return [Boolean]
       def resolve_self_via_rbs?(base, meth, provider)
         return false unless provider
@@ -1360,11 +1352,11 @@ module Docscribe
       end
 
       # @note module_function: defines #receiver_dispatch_type (visibility: private)
-      # @param [Object] recv
-      # @param [Object] core_rbs_provider
-      # @param [Object] local_var_types
-      # @param [Object] param_types
-      # @return [String, nil, Object]
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
+      # @return [String, nil]
       def receiver_dispatch_type(recv, core_rbs_provider, local_var_types, param_types)
         return nil unless recv.is_a?(Parser::AST::Node)
 
@@ -1375,15 +1367,14 @@ module Docscribe
           receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
         when :begin
           receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
-        else nil
         end
       end
 
       # @note module_function: defines #receiver_begin_type (visibility: private)
-      # @param [Object] recv
-      # @param [Object] core_rbs_provider
-      # @param [Object] local_var_types
-      # @param [Object] param_types
+      # @param [Parser::AST::Node, nil] recv
+      # @param [Docscribe::Types::RBS::Provider?] core_rbs_provider
+      # @param [Hash<String, String>?] local_var_types
+      # @param [Hash<String, String>?] param_types
       # @return [String, nil]
       def receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
         return nil unless recv.is_a?(Parser::AST::Node)
@@ -1411,7 +1402,7 @@ module Docscribe
       end
 
       # @note module_function: defines #resolve_cleaned_type (visibility: private)
-      # @param [Object] type
+      # @param [String, nil] type
       # @return [String, nil]
       def resolve_cleaned_type(type)
         return nil unless type
@@ -1420,11 +1411,11 @@ module Docscribe
       end
 
       # @note module_function: defines #receiver_or_and_preference (visibility: private)
-      # @param [Object] left_clean
-      # @param [Object] right_clean
-      # @param [Object] left
-      # @param [Object] right
-      # @return [Object]
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @param [String, nil] left
+      # @param [String, nil] right
+      # @return [String, nil]
       def receiver_or_and_preference(left_clean, right_clean, left, right)
         preferred = single_clean_preference(left_clean, right_clean)
         return preferred if preferred
@@ -1434,9 +1425,9 @@ module Docscribe
       end
 
       # @note module_function: defines #single_clean_preference (visibility: private)
-      # @param [Object] left_clean
-      # @param [Object] right_clean
-      # @return [nil]
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @return [String, nil]
       def single_clean_preference(left_clean, right_clean)
         return left_clean if left_clean && !right_clean
         return right_clean if right_clean && !left_clean
@@ -1445,9 +1436,9 @@ module Docscribe
       end
 
       # @note module_function: defines #both_clean_equal? (visibility: private)
-      # @param [Object] left_clean
-      # @param [Object] right_clean
-      # @return [Object, Boolean]
+      # @param [String, nil] left_clean
+      # @param [String, nil] right_clean
+      # @return [Boolean]
       def both_clean_equal?(left_clean, right_clean)
         left_clean && right_clean && left_clean == right_clean
       end
@@ -1911,6 +1902,6 @@ module Docscribe
 
         "#{type_a}, #{type_b}"
       end
-    end # rubocop:enable Metrics/ModuleLength, Style/EmptyElse, Lint/RedundantCopDisableDirective
+    end
   end
 end

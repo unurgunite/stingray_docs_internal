@@ -27,6 +27,15 @@ module Docscribe
 
       def self.alias_type?: (String type_str) -> bool
       def alias_type?: (String type_str) -> bool
+
+      def self.normalized_base: (String token) -> String
+      def normalized_base: (String token) -> String
+
+      def self.populate_class_decls: (RBS::Environment env, Set[String] primitives) -> void
+      def populate_class_decls: (RBS::Environment env, Set[String] primitives) -> void
+
+      def self.populate_interface_decls: (RBS::Environment env, Set[String] primitives) -> void
+      def populate_interface_decls: (RBS::Environment env, Set[String] primitives) -> void
     end
   end
 end
