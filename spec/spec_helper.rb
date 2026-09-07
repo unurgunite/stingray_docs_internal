@@ -32,6 +32,7 @@ RSpec.configure do |config|
   config.include GenerateHelper
   config.include CollectionLoaderHelper
   config.include KeepDescriptionsHelper
+  config.include NormalizeCommentHelper
   config.example_status_persistence_file_path = '.rspec_status'
   config.disable_monkey_patching!
   config.expect_with(:rspec) { |c| c.syntax = :expect }

@@ -734,13 +734,12 @@ module Docscribe
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [Array<String>] list of inferred types from each branch
       def process_case_branches(node, **opts)
-        (node.children[1..] || []).compact.flat_map do |child|
-          if child.type == :when
-            run_last_expr_type(child.children.last, **opts)
-          else
-            run_last_expr_type(child, **opts)
-          end
+        children = (node.children[1..] || []).compact
+        branches = children.flat_map do |child|
+          child.type == :when ? run_last_expr_type(child.children.last, **opts) : run_last_expr_type(child, **opts)
         end.compact
+        branches << 'nil' unless children.last && children.last.type != :when
+        branches
       end
 
       # Handle `:block` node for last_expr_type.
@@ -1897,6 +1896,8 @@ module Docscribe
       def unify_nil_types(type_a, type_b, nil_as_optional:)
         if type_a == 'nil' || type_b == 'nil'
           non_nil = (type_a == 'nil' ? type_b : type_a)
+          return non_nil if non_nil.end_with?('?')
+
           return nil_as_optional ? "#{non_nil}?" : "#{non_nil}, nil"
         end
 

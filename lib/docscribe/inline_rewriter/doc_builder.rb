@@ -2213,8 +2213,9 @@ module Docscribe
       # @param [String, nil] type_str
       # @return [String]
       def normalize_type(type_str)
-        type_str.to_s.strip.squeeze(' ').gsub('[', '<').gsub(']', '>').gsub(/\buntyped\b/, 'Object')
-                .gsub(/\bFALLBACK_TYPE\b/, 'Object')
+        s = type_str.to_s
+        s = s.sub(/#.*\z/m, '').strip unless s.lstrip.start_with?('#')
+        s.strip.squeeze(' ').gsub('[', '<').gsub(']', '>').gsub(/\buntyped\b/, 'Object').gsub(/\bFALLBACK_TYPE\b/, 'Object')
       end
 
       # Record missing return
