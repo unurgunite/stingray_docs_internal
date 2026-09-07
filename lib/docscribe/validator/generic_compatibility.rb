@@ -428,7 +428,7 @@ module Docscribe
           return true if base =~ /\A[A-Z]\z/
 
           !!(base =~ /\A[A-Z][A-Za-z0-9_]*\z/)
-        end # rubocop:enable SortedMethodsByCall/Waterfall
+        end
 
         # Whether one side is a bare alias (e.g., V, U, T, Elem) vs concrete type.
         #

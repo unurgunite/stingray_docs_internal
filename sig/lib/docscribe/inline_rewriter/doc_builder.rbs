@@ -113,6 +113,8 @@ module Docscribe
 
       def self?.extract_return_info: (String line, parseInfo info) -> void
 
+      def self?.conditional_return_desc?: ((String | nil) desc) -> bool
+
       def self?.extract_sig_param_info: (Parser::AST::Node? node) -> [ Integer?, Array[String] ]
 
       def self?.extract_visibility_info: (String line, parseInfo info) -> void

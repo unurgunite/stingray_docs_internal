@@ -598,8 +598,24 @@ module Docscribe
         return unless (m = content.match(/@return\s+/))
 
         return_type, return_desc = parse_return_rest(m.post_match)
-        info[:return_type] = return_type if return_type
+        return unless return_type
+        # Rescue-conditional `@return [X] if Error` tags describe rescue
+        # branches (see rescue_conditional_returns) and must not overwrite
+        # the main return type — otherwise check demands the conditional
+        # type while update_types regenerates it, ping-ponging forever.
+        return if conditional_return_desc?(return_desc)
+
+        info[:return_type] = return_type
         info[:return_description] = return_desc if return_desc
+      end
+
+      # Whether a return description marks a rescue-conditional tag.
+      #
+      # @note module_function: defines #conditional_return_desc? (visibility: private)
+      # @param [String, nil] desc description after the type brackets
+      # @return [Boolean] true for "if Error" suffixes
+      def conditional_return_desc?(desc)
+        desc.to_s.start_with?('if ')
       end
 
       # Parse return type from rest string
@@ -2191,7 +2207,7 @@ module Docscribe
         end
 
         false
-      end # rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+      end
 
       # Whether a type string is a union of only fallback types (with optional `?`).
       #

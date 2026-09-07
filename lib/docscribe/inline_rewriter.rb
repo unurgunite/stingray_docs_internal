@@ -113,6 +113,7 @@ module Docscribe
       # @param [Hash] options additional kwargs (config, signature_provider, core_rbs_provider, strategy, file)
       # @raise [StandardError]
       # @return [void]
+      # @return [Object] if StandardError
       def dispatch_single_insertion(kind, ins, pipeline, buffer, **options)
         method_name = :"dispatch_#{kind}_insertion"
         return unless respond_to?(method_name, true)
