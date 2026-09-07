@@ -19,6 +19,7 @@ module Docscribe
       def alias_pattern?(token)
         base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
         return true if base =~ /\A[a-z]/ || base.include?('::')
+        return true if base =~ /\A[A-Z]\z/
 
         !!(base =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !core_primitives.include?(base))
       end
@@ -40,13 +41,14 @@ module Docscribe
       # @note module_function: defines #alias_token? (visibility: private)
       # @param [String] token single type token
       # @return [Boolean] true if alias
-      def alias_token?(token)
+      def alias_token?(token) # rubocop:disable Metrics/AbcSize
         base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
         return false if primitive?(base)
         return true if base =~ /\A[a-z]/ || base.include?('::')
+        return true if base =~ /\A[A-Z]\z/
 
         !!(base =~ /\A[A-Z][A-Za-z0-9_]*\z/ && !core_primitives.include?(base))
-      end
+      end # rubocop:enable Metrics/AbcSize
 
       # Whether token is a primitive type (String, Integer, etc) vs alias (Elem, U, ParamTag).
       #

@@ -10,6 +10,15 @@ module Docscribe
       def self.load_core_primitives: () -> Array[String]
       def load_core_primitives: () -> Array[String]
 
+      def self.load_yard_primitives: (Set[String] primitives) -> Set[String]
+      def load_yard_primitives: (Set[String] primitives) -> Set[String]
+
+      def self.load_rbs_core: (Set[String] primitives) -> Set[String]
+      def load_rbs_core: (Set[String] primitives) -> Set[String]
+
+      def self.merge_primitives: (Set[String] primitives) -> Set[String]
+      def merge_primitives: (Set[String] primitives) -> Set[String]
+
       def self.alias_token?: (String token) -> bool
       def alias_token?: (String token) -> bool
 

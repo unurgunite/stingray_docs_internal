@@ -222,6 +222,50 @@ module Docscribe
       def self?.split_handle_bracket: (String chr, Hash[Symbol, untyped] state) -> void
 
       def self?.split_handle_comma: (Hash[Symbol, untyped] state, strip: bool) -> void
+
+      def self?.fallback_generic_substitution: (String rbs_type, String inner) -> String
+
+      def self?.bare_container_type: ((String | nil) rbs_type, String inner) -> (String | nil)
+
+      def self?.placeholder_token?: (String token) -> bool
+
+      def self?.string_send_type: (Symbol meth, (Parser::AST::Node | nil) recv) -> (String | nil)
+
+      def self?.string_like_method?: (Symbol meth) -> bool
+
+      def self?.file_join_method?: (Symbol meth, (Parser::AST::Node | nil) recv) -> bool
+
+      def self?.sub_string_method?: (Symbol meth, (Parser::AST::Node | nil) recv) -> bool
+
+      def self?.fallback_concrete_type: ((String | nil) left, (String | nil) right, String fallback) -> String
+
+      def self?.fallback_preferred_side: ((String | nil) left, (String | nil) right, bool left_is_fallback, bool right_is_fallback) -> (String | nil)
+
+      def self?.fallback_type?: ((String | nil) type, String fallback) -> bool
+
+      def self?.resolve_self_via_rbs?: (String base, Symbol meth, Types::RBS::Provider? provider) -> bool
+
+      def self?.receiver_dispatch_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.receiver_begin_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.resolve_cleaned_type: ((String | nil) `type`) -> (String | nil)
+
+      def self?.receiver_or_and_preference: ((String | nil) left_clean, (String | nil) right_clean, (String | nil) left, (String | nil) right) -> (String | nil)
+
+      def self?.single_clean_preference: ((String | nil) left_clean, (String | nil) right_clean) -> (String | nil)
+
+      def self?.both_clean_equal?: ((String | nil) left_clean, (String | nil) right_clean) -> bool
+
+      def self?.handle_then_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.handle_map_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.block_generic_substitution: (String rbs_type, (String | nil) inner) -> (String | nil)
+
+      def self?.placeholder_tokens: (String inner_generic) -> Array[String]
+
+      def self?.substitute_placeholders: (String rbs_type, Array[String] placeholders, String inner) -> String
     end
   end
 end

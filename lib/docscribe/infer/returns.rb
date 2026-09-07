@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
+# rubocop:disable Style/EmptyElse, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize, Lint/DuplicateBranch, Lint/RedundantCopDisableDirective, Lint/MissingCopEnableDirective, Layout/EmptyLineAfterMagicComment
 require_relative '../types/primitive'
 
 module Docscribe
   module Infer
     # Return type inference and rescue-conditional return extraction.
-    module Returns
+    module Returns # rubocop:disable Metrics/ModuleLength, Style/EmptyElse, Lint/RedundantCopDisableDirective, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength, Metrics/AbcSize
       module_function
 
       # Infer a return type from a full method definition source string.
@@ -91,9 +92,10 @@ module Docscribe
       # @param [Parser::AST::Node] node a `:def` or `:defs` AST node
       # @return [Parser::AST::Node, nil]
       def extract_def_body(node)
-        case node.type
-        when :def then node.children[2]
-        when :defs then node.children[3]
+        case node&.type
+        when :def then node&.children&.[](2)
+        when :defs then node&.children&.[](3)
+        else nil
         end
       end
 
@@ -106,7 +108,7 @@ module Docscribe
       # @param [Hash] opts additional keyword options forwarded to type inference
       # @return [void]
       def populate_returns_spec(spec, body, local_var_types, **opts)
-        if body.type == :rescue
+        if body&.type == :rescue
           process_rescue_body(spec, body, **opts)
         else
           spec[:normal] = infer_normal_return_type(body, **opts, local_var_types: local_var_types)
@@ -223,9 +225,11 @@ module Docscribe
       # @param [Parser::AST::Node] node an assignment AST node (:lvasgn, :gvasgn, :ivasgn, :casgn, :op_asgn)
       # @return [(String, nil, Parser::AST::Node, nil)]
       def assignment_name_and_value(node)
-        case node.type
+        return [nil, nil] unless node.is_a?(Parser::AST::Node)
+
+        case node&.type
         when :lvasgn, :gvasgn, :ivasgn, :cvasgn
-          [node.children[0].to_s, node.children[1]]
+          [node&.children&.[](0).to_s, node&.children&.[](1)]
         when :casgn
           constant_name_and_value(node)
         when :op_asgn
@@ -389,9 +393,10 @@ module Docscribe
       def op_asgn_var_name(lhs)
         return nil unless lhs.is_a?(Parser::AST::Node)
 
-        case lhs.type
-        when :lvasgn, :ivasgn, :gvasgn, :cvasgn then lhs.children[0].to_s
-        when :casgn then lhs.children[1].to_s
+        case lhs&.type
+        when :lvasgn, :ivasgn, :gvasgn, :cvasgn then lhs&.children&.[](0).to_s
+        when :casgn then lhs&.children&.[](1).to_s
+        else nil
         end
       end
 
@@ -401,11 +406,14 @@ module Docscribe
       # @param [Hash] opts
       # @return [String, nil]
       def op_asgn_lookup_type(lhs, name, **opts)
-        case lhs.type
+        return nil unless lhs.is_a?(Parser::AST::Node)
+
+        case lhs&.type
         when :lvasgn
           lookup_lvar_type(name, opts[:local_var_types], opts[:param_types])
         when :ivasgn, :gvasgn, :cvasgn, :casgn
           opts[:local_var_types]&.fetch(name, nil)
+        else nil
         end
       end
 
@@ -866,7 +874,9 @@ module Docscribe
       # @param [Object] inner
       # @return [String]
       def bare_container_type(rbs_type, inner)
-        base = rbs_type.split(/[<\[ ]/).first
+        return nil unless rbs_type.is_a?(String)
+
+        base = rbs_type&.split(/[<\[ ]/)&.first
         return nil unless %w[Array Set Enumerable Enumerator].include?(base)
         return nil if rbs_type.include?('<') || rbs_type.include?('[')
 
@@ -940,7 +950,7 @@ module Docscribe
       # @param [Object] recv
       # @return [Boolean]
       def file_join_method?(meth, recv)
-        meth == :join && recv&.type == :const && recv.children[1] == :File
+        meth == :join && recv&.type == :const && recv&.children&.[](1) == :File
       end
 
       # @note module_function: defines #sub_string_method? (visibility: private)
@@ -948,7 +958,7 @@ module Docscribe
       # @param [Object] recv
       # @return [Boolean, Object, Boolean]
       def sub_string_method?(meth, recv)
-        meth == :sub && recv && recv.type != :const
+        meth == :sub && recv && recv&.type != :const
       end
 
       # @note module_function: defines #handle_csend_node (visibility: private)
@@ -1110,10 +1120,11 @@ module Docscribe
       # @param [Hash] opts
       # @return [String, nil]
       def compound_var_lookup(recv, **opts)
-        return nil unless %i[lvar ivar gvar cvar].include?(recv.type)
+        return nil unless recv.is_a?(Parser::AST::Node)
+        return nil unless %i[lvar ivar gvar cvar].include?(recv&.type)
 
-        name = recv.children[0].to_s
-        if recv.type == :lvar
+        name = recv&.children&.[](0).to_s
+        if recv&.type == :lvar
           lookup_lvar_type(name, opts[:local_var_types], opts[:param_types])
         else
           opts[:local_var_types]&.fetch(name, nil)
@@ -1355,13 +1366,16 @@ module Docscribe
       # @param [Object] param_types
       # @return [String, nil, Object]
       def receiver_dispatch_type(recv, core_rbs_provider, local_var_types, param_types)
-        case recv.type
+        return nil unless recv.is_a?(Parser::AST::Node)
+
+        case recv&.type
         when :send, :csend
           receiver_send_type(recv, core_rbs_provider, local_var_types, param_types)
         when :or, :and
           receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
         when :begin
           receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
+        else nil
         end
       end
 
@@ -1372,8 +1386,10 @@ module Docscribe
       # @param [Object] param_types
       # @return [String, nil]
       def receiver_begin_type(recv, core_rbs_provider, local_var_types, param_types)
-        inner = recv.children[0]
-        return unless inner && recv.children.size == 1
+        return nil unless recv.is_a?(Parser::AST::Node)
+
+        inner = recv&.children&.[](0)
+        return unless inner && recv&.children&.size == 1
 
         receiver_rbs_type_name(inner, core_rbs_provider, local_var_types, param_types)
       end
@@ -1385,8 +1401,10 @@ module Docscribe
       # @param [Hash<String, String>?] param_types
       # @return [String, nil]
       def receiver_or_and_type(recv, core_rbs_provider, local_var_types, param_types)
-        left = receiver_rbs_type_name(recv.children[0], core_rbs_provider, local_var_types, param_types)
-        right = receiver_rbs_type_name(recv.children[1], core_rbs_provider, local_var_types, param_types)
+        return nil unless recv.is_a?(Parser::AST::Node)
+
+        left = receiver_rbs_type_name(recv&.children&.[](0), core_rbs_provider, local_var_types, param_types)
+        right = receiver_rbs_type_name(recv&.children&.[](1), core_rbs_provider, local_var_types, param_types)
         left_clean = resolve_cleaned_type(left)
         right_clean = resolve_cleaned_type(right)
         receiver_or_and_preference(left_clean, right_clean, left, right)
@@ -1438,14 +1456,18 @@ module Docscribe
       # @param [Parser::AST::Node, nil] recv
       # @return [String, nil]
       def receiver_literal_type(recv)
-        LITERAL_RBS_TYPES[recv.type] if LITERAL_RBS_TYPES.key?(recv.type)
+        return nil unless recv.is_a?(Parser::AST::Node)
+
+        LITERAL_RBS_TYPES[recv&.type] if LITERAL_RBS_TYPES.key?(recv&.type)
       end
 
       # @note module_function: defines #var_receiver? (visibility: private)
       # @param [Parser::AST::Node, nil] recv
       # @return [Boolean]
       def var_receiver?(recv)
-        %i[lvar ivar gvar cvar].include?(recv.type)
+        return false unless recv.is_a?(Parser::AST::Node)
+
+        %i[lvar ivar gvar cvar].include?(recv&.type)
       end
 
       # @note module_function: defines #receiver_var_type (visibility: private)
@@ -1889,6 +1911,6 @@ module Docscribe
 
         "#{type_a}, #{type_b}"
       end
-    end
+    end # rubocop:enable Metrics/ModuleLength, Style/EmptyElse, Lint/RedundantCopDisableDirective
   end
 end

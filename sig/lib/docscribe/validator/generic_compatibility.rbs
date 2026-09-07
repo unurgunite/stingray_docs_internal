@@ -98,6 +98,21 @@ module Docscribe
 
       def self.normalize: ((String | nil) type_str) -> String
       def normalize: ((String | nil) type_str) -> String
+
+      def self.canonical_without_nil: (Array[String] canonical) -> Array[String]
+      def canonical_without_nil: (Array[String] canonical) -> Array[String]
+
+      def self.bare_alias_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def bare_alias_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.bare_alias?: (String normalized) -> bool
+      def bare_alias?: (String normalized) -> bool
+
+      def self.bare_single_cap?: (String normalized) -> bool
+      def bare_single_cap?: (String normalized) -> bool
+
+      def self.union_parts_compatible?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type, (String | Symbol | nil) method_name) -> bool
+      def union_parts_compatible?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type, (String | Symbol | nil) method_name) -> bool
     end
   end
 end

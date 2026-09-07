@@ -20,6 +20,7 @@ module Docscribe
         union_containment: :union_containment?,
         optional_suffix: :optional_suffix_compatible?,
         generic_inner_alias: :generic_inner_alias_compatible?,
+        bare_alias: :bare_alias_compatible?,
         union_optional: :union_vs_optional_compatible?,
         object_compatible: :object_compatible?,
         fallback_union: :fallback_union_check?
@@ -36,6 +37,8 @@ module Docscribe
         def compatible?(yard_type, expected_type, fallback_type: 'Object', method_name: nil)
           return true if void_compatible?(yard_type, expected_type, fallback_type, method_name: method_name)
 
+          return true if union_parts_compatible?(yard_type, expected_type, fallback_type, method_name)
+
           CHECKS.any? do |name, checker|
             if name == :fallback_union
               send(checker, yard_type, expected_type, fallback_type)
@@ -44,6 +47,47 @@ module Docscribe
             end
           end
         end
+
+        # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+        def union_parts_compatible?(yard_type, expected_type, fallback_type, _method_name)
+          yt = yard_type.to_s
+          et = expected_type.to_s
+          return false unless yt.include?(',') || et.include?(',')
+
+          parts_yard = yt.include?(',') ? split_top_level_commas_local(yt).map { |p| normalize(p) } : [normalize(yt)]
+          parts_expected = et.include?(',') ? split_top_level_commas_local(et).map { |p| normalize(p) } : [normalize(et)]
+          # If yard is single and expected is union, check if any expected part compatible with yard via non-union checks
+          if parts_yard.size == 1 && parts_expected.size > 1
+            return parts_expected.any? do |part|
+              single = parts_yard.first
+              CHECKS.any? do |name, checker|
+                next if %i[union_containment fallback_union].include?(name)
+
+                if name == :fallback_union
+                  send(checker, single, part, fallback_type)
+                else
+                  send(checker, single, part)
+                end || single == part
+              end
+            end
+          end
+          if parts_expected.size == 1 && parts_yard.size > 1
+            return parts_yard.any? do |part|
+              single = parts_expected.first
+              CHECKS.any? do |name, checker|
+                next if %i[union_containment fallback_union].include?(name)
+
+                if name == :fallback_union
+                  send(checker, part, single, fallback_type)
+                else
+                  send(checker, part, single)
+                end || part == single
+              end
+            end
+          end
+          false
+        end
+        # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 
         # Whether void YARD type is compatible with expected type.
         #
@@ -149,7 +193,7 @@ module Docscribe
         #
         # @param [String] normalized normalized type string (after {#normalize})
         # @return [Boolean] true if string includes "<" or "[" indicating generic
-        def generic_string?(normalized) # rubocop:disable SortedMethodsByCall/Waterfall
+        def generic_string?(normalized)
           normalized.include?('<') || normalized.include?('[')
         end
 
@@ -342,12 +386,55 @@ module Docscribe
         #
         # @param [String] token single type token (trimmed inner part, may include ?)
         # @return [Boolean] true if token is alias (unknown primitive or namespaced/lowercase)
-        def alias_token?(token)
+        def alias_token?(token) # rubocop:disable SortedMethodsByCall/Waterfall
           base = token.split('<').first.split('[').first.strip.delete_suffix('?').strip
           return false if Docscribe::Types::Primitive.primitive?(base)
           return true if base =~ /\A[a-z]/ || base.include?('::')
+          return true if base =~ /\A[A-Z]\z/
 
-          base =~ /\A[A-Z][A-Za-z0-9_]*\z/
+          !!(base =~ /\A[A-Z][A-Za-z0-9_]*\z/)
+        end # rubocop:enable SortedMethodsByCall/Waterfall
+
+        # Whether one side is a bare alias (e.g., V, U, T, Elem) vs concrete type.
+        #
+        # Bare alias means single token without generic brackets or commas that
+        # satisfies {#alias_token?}. E.g., "V" vs "Array<String>" => true via alias.
+        # Handles single capital letter A-Z explicitly for RBS type params.
+        #
+        # @param [String, nil] yard_type YARD type string
+        # @param [String, nil] expected_type inferred/RBS type string
+        # @return [Boolean] true if either side is bare alias
+        def bare_alias_compatible?(yard_type, expected_type)
+          norm_yard = normalize(yard_type)
+          norm_expected = normalize(expected_type)
+          return false if norm_yard.empty? || norm_expected.empty?
+
+          bare_single_cap?(norm_yard) || bare_single_cap?(norm_expected)
+        end
+
+        # Whether normalized string is a bare single-capital alias (V, U, T, K, Elem? no, single A-Z only).
+        #
+        # Single capital letters are RBS type parameters (generic placeholders) that should
+        # be compatible with concrete types like Array<String> or String. Multi-letter aliases
+        # like Config are not considered bare aliases (handled via other checks).
+        #
+        # @param [String] normalized normalized type string
+        # @return [Boolean] true if bare single capital
+        def bare_single_cap?(normalized)
+          return false if normalized.include?('<') || normalized.include?('[') || normalized.include?(',')
+
+          stripped = normalized.strip.delete_suffix('?').strip
+          stripped =~ /\A[A-Z]\z/ && alias_token?(stripped)
+        end
+
+        # Whether normalized string is a bare alias token (no generics, no union).
+        #
+        # @param [String] normalized normalized type string
+        # @return [Boolean] true if bare alias
+        def bare_alias?(normalized)
+          return false if normalized.include?('<') || normalized.include?('[') || normalized.include?(',')
+
+          alias_token?(normalized.strip)
         end
 
         # Whether union `?, nil` forms are compatible: `Object?` vs `Object, nil` vs `Object|nil`.
