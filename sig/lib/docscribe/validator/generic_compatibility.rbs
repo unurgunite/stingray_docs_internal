@@ -21,6 +21,9 @@ module Docscribe
       def self.alias_hash_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
       def alias_hash_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
 
+      def self.alias_hash_pair?: (String alias_type, String hash_type) -> bool
+      def alias_hash_pair?: (String alias_type, String hash_type) -> bool
+
       def self.tuple_array_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
       def tuple_array_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
 

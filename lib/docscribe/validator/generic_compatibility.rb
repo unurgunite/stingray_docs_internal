@@ -248,14 +248,25 @@ module Docscribe
         def alias_hash_compatible?(yard_type, expected_type)
           norm_yard = normalize(yard_type)
           norm_expected = normalize(expected_type)
-          hash_like = %w[Hash Array Range]
           [[norm_yard, norm_expected], [norm_expected, norm_yard]].any? do |alias_type, hash_type|
-            base = base_name(hash_type)
-            next false unless hash_like.include?(base) || hash_type.start_with?('Hash') || hash_type.start_with?('Array') || hash_type == 'Range'
-
-            short_alias = alias_type.split('::').last.to_s
-            short_alias =~ /\A[a-z]/ && alias_type.include?('::')
+            alias_hash_pair?(alias_type, hash_type)
           end
+        end
+
+        # @param [String] alias_type potential alias side
+        # @param [String] hash_type potential Hash/Array side
+        # @return [Boolean]
+        def alias_hash_pair?(alias_type, hash_type)
+          base = base_name(hash_type)
+          return false unless %w[Hash Array Range].include?(base) ||
+                              hash_type.start_with?('Hash') ||
+                              hash_type.start_with?('Array') ||
+                              hash_type == 'Range'
+
+          short_alias = alias_type.split('::').last.to_s
+          return false if %w[node Node].include?(short_alias)
+
+          short_alias =~ /\A[a-z]/ && alias_type.include?('::')
         end
 
         # Base name before generic or paren.
