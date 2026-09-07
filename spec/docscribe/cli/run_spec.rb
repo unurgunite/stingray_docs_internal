@@ -27,12 +27,6 @@ RSpec.describe Docscribe::CLI::Run do
   before { File.write("#{dir}/foo.rb", code) }
   after  { FileUtils.remove_entry(dir) }
 
-  shared_examples 'correct exit status' do
-    it 'exits 1 in check mode when updates needed' do
-      expect(result[2].exitstatus).to eq(1)
-    end
-  end
-
   describe 'check mode (default)' do
     let(:args) { ['foo.rb'] }
 

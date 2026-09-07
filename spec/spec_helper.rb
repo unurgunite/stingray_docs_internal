@@ -3,7 +3,7 @@
 require 'bundler/setup'
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 require 'docscribe'
-Dir['./spec/support/*.rb'].sort.each { |file| require file }
+Dir['./spec/support/**/*.rb'].sort.each { |file| require file }
 
 RSpec.configure do |config|
   config.include HeaderRegex
