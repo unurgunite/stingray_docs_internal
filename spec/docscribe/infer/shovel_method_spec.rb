@@ -12,12 +12,16 @@ RSpec.describe Docscribe::Infer::Returns do
       let(:recv_type) { 'Array' }
       let(:meth) { :<< }
 
+      before { skip_unless_rbs_available! }
+
       it { is_expected.to be true }
     end
 
     context 'when Array<String>#<<' do
       let(:recv_type) { 'Array<String>' }
       let(:meth) { :<< }
+
+      before { skip_unless_rbs_available! }
 
       it { is_expected.to be true }
     end
@@ -26,6 +30,8 @@ RSpec.describe Docscribe::Infer::Returns do
       let(:recv_type) { 'String' }
       let(:meth) { :<< }
 
+      before { skip_unless_rbs_available! }
+
       it { is_expected.to be true }
     end
 
@@ -33,12 +39,16 @@ RSpec.describe Docscribe::Infer::Returns do
       let(:recv_type) { 'String' }
       let(:meth) { :concat }
 
+      before { skip_unless_rbs_available! }
+
       it { is_expected.to be true }
     end
 
     context 'when Array#push' do
       let(:recv_type) { 'Array' }
       let(:meth) { :push }
+
+      before { skip_unless_rbs_available! }
 
       it { is_expected.to be true }
     end

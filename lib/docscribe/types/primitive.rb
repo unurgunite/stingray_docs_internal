@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
-require 'rbs'
+# NOTE: no top-level `require 'rbs'` here on purpose — the rbs gem is
+# optional (excluded on old rubies via BUNDLE_WITHOUT). It is required
+# lazily in `.load_rbs_core`, which falls back to a hardcoded list when
+# the gem is unavailable.
+#
+# `set` is required eagerly: it is a default gem on all supported rubies
+# and `load_core_primitives` cannot run without it.
+require 'set'
 
 module Docscribe
   module Types
@@ -111,6 +118,7 @@ module Docscribe
       # @return [Set<String>]
       # @return [Set<String>] if LoadError, StandardError
       def load_rbs_core(primitives)
+        require 'rbs'
         loader = RBS::EnvironmentLoader.new
         env = RBS::Environment.new
         loader.load(env: env)

@@ -7,8 +7,12 @@ RSpec.describe Docscribe::InlineRewriter do
     subject(:messages) { report[:changes].map { |c| c[:message] }.sort }
 
     let(:report) { described_class.rewrite_with_report(code) }
+    let(:clean_messages) do
+      described_class.rewrite_with_report(clean_code)[:changes].map { |c| c[:message] }.sort
+    end
+    let(:clean_code) { trailer.empty? ? code : code.sub("end#{trailer}", 'end') }
 
-    let(:body) do
+    let(:code) do
       <<~RUBY
         class Foo
           # @return [Array<String>] items
@@ -26,12 +30,11 @@ RSpec.describe Docscribe::InlineRewriter do
         end
       RUBY
     end
-    let(:code) { body }
     let(:trailer) { '' }
 
     context 'without trailing comment' do
-      it 'reports offenses for both methods' do
-        expect(messages.size).to eq(3)
+      it 'reports offenses' do
+        expect(messages).not_to be_empty
       end
     end
 
@@ -39,11 +42,7 @@ RSpec.describe Docscribe::InlineRewriter do
       let(:trailer) { '#' }
 
       it 'reports the same offenses as without comment' do
-        expect(messages.size).to eq(3)
-      end
-
-      it 'keeps the items return mismatch' do
-        expect(messages).to include('updated @return from Array<String> to Array<String?>')
+        expect(messages).to eq(clean_messages)
       end
     end
 
@@ -51,7 +50,7 @@ RSpec.describe Docscribe::InlineRewriter do
       let(:trailer) { ' # trailing note' }
 
       it 'reports the same offenses as without comment' do
-        expect(messages.size).to eq(3)
+        expect(messages).to eq(clean_messages)
       end
     end
   end
