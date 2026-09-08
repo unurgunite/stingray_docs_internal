@@ -55,6 +55,10 @@ jobs:
         if: ${{ !contains(fromJson('["2.7", "3.0", "3.1"]'), matrix.ruby) }}
         run: |
           cd test_project && BUNDLE_GEMFILE=Gemfile bundle install && cd ..
+          # .gem_rbs_collection/ is gitignored, so a fresh checkout has no
+          # collection and RBS lookups silently fall back to inference
+          # (dozens of false mismatches). Materialize it from the lock file.
+          bundle exec rbs collection install
           FILES="$(git ls-files 'lib/**/*.rb')"
           bundle exec docscribe $FILES -C docscribe.yml
 
