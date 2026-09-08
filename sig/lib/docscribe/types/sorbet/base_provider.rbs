@@ -18,6 +18,10 @@ module Docscribe
 
         def load_from_string: (String source, label: String) -> void
 
+        def parse: (::RBS::Prototype::RBI parser, String source) -> void
+
+        def suppress_rbs_noise: [T] () { () -> T } -> T
+
         def index_decls: (Array[untyped] decls) -> void
 
         def process_method_member: (String container, untyped member) -> void
