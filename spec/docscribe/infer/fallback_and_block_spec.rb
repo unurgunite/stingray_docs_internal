@@ -34,8 +34,59 @@ RSpec.describe Docscribe::Infer::Returns do
       let(:parsed_node) { described_class.parse_method_source(code) }
       let(:method_body) { described_class.extract_def_body(parsed_node) }
 
-      it 'handles FALLBACK_TYPE constant node' do
+      it 'falls back to Object for bare sentinel without scope info' do
         expect(inferred).to eq('Object')
+      end
+    end
+
+    context 'when inferring rescue branches with scope info' do
+      subject(:rescues) do
+        spec = { normal: 'Object', rescues: [] }
+        described_class.send(:process_rescue_branches, spec, body, container: container)
+        spec[:rescues]
+      end
+
+      let(:body) do
+        Parser::AST::Node.new(:rescue, [
+                                Parser::AST::Node.new(:send, [nil, :parse_something]),
+                                Parser::AST::Node.new(:resbody, [
+                                                        Parser::AST::Node.new(:array, [Parser::AST::Node.new(:const, [nil, :Parser])]),
+                                                        nil,
+                                                        Parser::AST::Node.new(:const, [nil, :FALLBACK_TYPE])
+                                                      ])
+                              ])
+      end
+      let(:container) { 'Docscribe::Infer::Returns' }
+
+      it 'infers String for the sentinel rescue body' do
+        expect(rescues).to eq([[%w[Parser], 'String']])
+      end
+    end
+
+    context 'when resolving constant values with scope info' do
+      it 'resolves docscribe sentinel in its own scope' do
+        node = Parser::AST::Node.new(:const, [nil, :FALLBACK_TYPE])
+        expect(described_class.send(:resolve_const_value_type, node, 'Docscribe::Infer::Returns')).to eq('String')
+      end
+
+      it 'resolves core top-level constants without container' do
+        node = Parser::AST::Node.new(:const, [nil, :RUBY_VERSION])
+        expect(described_class.send(:resolve_const_value_type, node, nil)).to eq('String')
+      end
+
+      it 'returns nil for unknown constants' do
+        node = Parser::AST::Node.new(:const, [nil, :NO_SUCH_CONST_XYZ])
+        expect(described_class.send(:resolve_const_value_type, node, 'Docscribe::Infer::Returns')).to be_nil
+      end
+
+      it 'skips class-valued constants to keep name-based inference' do
+        node = Parser::AST::Node.new(:const, [nil, :String])
+        expect(described_class.send(:resolve_const_value_type, node, 'Docscribe::Infer::Returns')).to be_nil
+      end
+
+      it 'does not steal user constants missing from this runtime' do
+        node = Parser::AST::Node.new(:const, [nil, :FALLBACK_TYPE])
+        expect(described_class.send(:resolve_const_value_type, node, 'MyApp::Thing')).to be_nil
       end
     end
 

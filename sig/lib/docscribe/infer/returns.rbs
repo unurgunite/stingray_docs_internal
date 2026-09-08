@@ -163,6 +163,22 @@ module Docscribe
 
       def self?.fallback_alias?: ((String | nil) type_str, String fallback_type) -> bool
 
+      def self?.rescue_branch_type: ((Parser::AST::Node | nil) rescue_body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.resolve_const_value_type: (Parser::AST::Node node, (String | nil) container) -> (String | nil)
+
+      def self?.const_path_segments: (Parser::AST::Node node) -> ([Array[String], bool] | nil)
+
+      def self?.const_owner_paths: ((String | nil) container, Array[String] scope_parts, bool absolute) -> Array[String]
+
+      def self?.runtime_const_lookup: (String owner_path, String const_name) -> [bool, untyped]
+
+      def self?.safe_const_path: (Array[String] parts) -> (Module | nil)
+
+      def self?.safe_const_step: (Module mod, String name) -> (Module | nil)
+
+      def self?.yard_type_for_const_value: (untyped value) -> (String | nil)
+
       def self?.container_rbs_return_type: (Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
       def self?.send_rbs_type: ((Parser::AST::Node | nil) recv, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)

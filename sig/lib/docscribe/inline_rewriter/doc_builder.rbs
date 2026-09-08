@@ -151,8 +151,6 @@ module Docscribe
 
       def self?.merge_rescue_return_lines: (String indent, Array[[Array[String], String]] rescue_specs, Config config, parseInfo info) -> Array[String]
 
-      def self?.informative_rescue_type?: ((String | nil) rtype) -> bool
-
       def self?.collect_missing_visibility!: (Array[String] lines, Array[Hash[Symbol, untyped]] reasons, **Hash[Symbol, untyped]) -> void
 
       def self?.add_missing_private: (Array[String] lines, Array[Hash[Symbol, untyped]] reasons, Hash[Symbol, untyped] ctx) -> void

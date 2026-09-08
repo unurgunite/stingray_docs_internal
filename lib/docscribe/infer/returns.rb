@@ -17,7 +17,7 @@ module Docscribe
       # @param [String?] method_source full method definition source
       # @raise [Parser::SyntaxError]
       # @return [String]
-      # @return [Object] if Parser::SyntaxError
+      # @return [String] if Parser::SyntaxError
       def infer_return_type(method_source)
         return FALLBACK_TYPE if method_source.nil? || method_source.strip.empty?
 
@@ -165,8 +165,28 @@ module Docscribe
 
           exc_list, _asgn, rescue_body = *ch
           exc_names = Raises.exception_names_from_rescue_list(exc_list)
-          rtype = run_last_expr_type(rescue_body, **opts) || opts[:fallback_type]
+          rtype = rescue_branch_type(rescue_body, **opts) || opts[:fallback_type]
           spec[:rescues] << [exc_names, rtype]
+        end
+      end
+
+      # Infer a rescue branch type, resolving data constants precisely.
+      #
+      # Rescue branches form the documented contract (`@return [X] if Error`),
+      # so a bare data constant (e.g., FALLBACK_TYPE, whose runtime value is
+      # the String 'Object') infers as its value type instead of the bare
+      # fallback. Other nodes use the standard path unchanged.
+      #
+      # @note module_function: defines #rescue_branch_type (visibility: private)
+      # @param [Parser::AST::Node, nil] rescue_body rescue branch body node
+      # @param [Hash] opts additional keyword options forwarded to inference
+      # @return [String, nil] inferred branch type or nil
+      def rescue_branch_type(rescue_body, **opts)
+        if rescue_body.is_a?(Parser::AST::Node) && rescue_body.type == :const
+          resolve_const_value_type(rescue_body, opts[:container]) ||
+            run_last_expr_type(rescue_body, **opts)
+        else
+          run_last_expr_type(rescue_body, **opts)
         end
       end
 
@@ -1818,13 +1838,148 @@ module Docscribe
       # @return [String, nil]
       def handle_const_node(node, **opts)
         fallback = (opts[:fallback_type] || FALLBACK_TYPE).to_s #: String
+        const_name = node.children.last.to_s #: String
         resolved = Literals.type_from_literal(node, fallback_type: fallback)
         return fallback if fallback_alias?(resolved, fallback)
-
-        const_name = node.children.last.to_s #: String
         return fallback if fallback_alias?(const_name, fallback)
 
         resolved
+      end
+
+      # Resolve a const node to the YARD type of its runtime value.
+      #
+      # Looks the constant up in this process through the analyzed lexical
+      # scope (innermost container outward, then top level) and maps its
+      # value's class to a type name. Only constants actually present here
+      # resolve — user code is never loaded, so unknown names safely fall
+      # through to the fallback path. Classes and modules are skipped so
+      # references like `String` keep name-based inference.
+      #
+      # @note module_function: defines #resolve_const_value_type (visibility: private)
+      # @param [Parser::AST::Node] node the `:const` node
+      # @param [String, nil] container lexical container (e.g. "Foo::Bar")
+      # @return [String, nil] YARD type of the value, or nil when unresolvable
+      def resolve_const_value_type(node, container)
+        segments, absolute = const_path_segments(node)
+        return nil if segments.empty?
+
+        *scope_parts, const_name = segments
+        const_owner_paths(container, scope_parts, absolute).each do |owner_path|
+          found, value = runtime_const_lookup(owner_path, const_name)
+          next unless found
+
+          type = yard_type_for_const_value(value)
+          return type if type
+        end
+        nil
+      end
+
+      # Split a const node into static path segments and absoluteness.
+      #
+      # @note module_function: defines #const_path_segments (visibility: private)
+      # @param [Parser::AST::Node] node the `:const` node
+      # @return [(Array<String>, Boolean), nil] segments with last element
+      #   being the constant name plus absolute flag, or nil when dynamic
+      def const_path_segments(node)
+        parts = [] #: Array[String]
+        current = node
+        while current.is_a?(Parser::AST::Node) && current.type == :const
+          parts.unshift(current.children[1].to_s)
+          current = current.children[0]
+        end
+        return nil if current && !(current.is_a?(Parser::AST::Node) && current.type == :cbase)
+
+        absolute = !current.nil?
+        [parts, absolute]
+      end
+
+      # Candidate owner paths for a constant lookup, innermost first.
+      #
+      # Flat strings keep generic inference (and RubyMine) happy — nested
+      # arrays lose a level (`first(n)` degrades to Elem).
+      #
+      # @note module_function: defines #const_owner_paths (visibility: private)
+      # @param [String, nil] container lexical container (e.g. "Foo::Bar")
+      # @param [Array<String>] scope_parts static scope segments (may be empty)
+      # @param [Boolean] absolute whether the reference starts with `::`
+      # @return [Array<String>] owner paths, "" means top level
+      def const_owner_paths(container, scope_parts, absolute)
+        return [scope_parts.join('::')] if absolute
+
+        segments = container.to_s.split('::').grep(/\A[A-Z]\w*\z/)
+        # NOTE: `take` (not `first`) keeps RBS generic inference precise —
+        # `first(n)` loses one nesting level.
+        paths = segments.length.downto(1).map { |n| (segments.take(n) + scope_parts).join('::') }
+        paths << scope_parts.join('::')
+        paths
+      end
+
+      # Look up a constant in this process without side effects.
+      #
+      # @note module_function: defines #runtime_const_lookup (visibility: private)
+      # @param [String] owner_path owner namespace path ("" is top level)
+      # @param [String] const_name constant name to look up
+      # @raise [StandardError]
+      # @return [(Boolean, Object)] found flag with value (nil value is valid)
+      # @return [Array] if StandardError
+      def runtime_const_lookup(owner_path, const_name)
+        owner = owner_path.empty? ? Object : safe_const_path(owner_path.split('::'))
+        return [false, nil] unless owner.is_a?(Module)
+        return [false, nil] unless owner.const_defined?(const_name, false)
+        return [false, nil] if owner.autoload?(const_name)
+
+        [true, owner.const_get(const_name, false)]
+      rescue StandardError
+        [false, nil]
+      end
+
+      # Resolve a namespace path in this process without side effects.
+      #
+      # @note module_function: defines #safe_const_path (visibility: private)
+      # @param [Array<String>] parts namespace segments
+      # @return [Module, nil] the namespace or nil when unresolvable
+      def safe_const_path(parts)
+        mod = Object #: Module
+        parts.each do |name|
+          fetched = safe_const_step(mod, name)
+          return nil unless fetched
+
+          mod = fetched
+        end
+        mod
+      end
+
+      # Resolve one namespace step without side effects.
+      #
+      # @note module_function: defines #safe_const_step (visibility: private)
+      # @param [Module] mod current namespace
+      # @param [String] name nested constant name
+      # @raise [StandardError]
+      # @return [Module, nil] nested namespace or nil when unresolvable
+      # @return [nil] if StandardError
+      def safe_const_step(mod, name)
+        return nil unless mod.const_defined?(name, false) && !mod.autoload?(name)
+
+        fetched = mod.const_get(name, false)
+        fetched if fetched.is_a?(Module)
+      rescue StandardError
+        nil
+      end
+
+      # Map a constant's runtime value to a YARD type name.
+      #
+      # @note module_function: defines #yard_type_for_const_value (visibility: private)
+      # @param [Object] value the constant's runtime value
+      # @return [String, nil] YARD type or nil when not mappable
+      def yard_type_for_const_value(value)
+        return 'nil' if value.nil?
+        return 'Boolean' if value.is_a?(TrueClass) || value.is_a?(FalseClass)
+        return nil if value.is_a?(Module)
+
+        name = value.class.name
+        return nil unless name.is_a?(String) && name.match?(/\A[A-Z][A-Za-z0-9_:]*\z/)
+
+        name
       end
 
       # Whether a type string is the fallback alias (FALLBACK_TYPE or the configured fallback type).

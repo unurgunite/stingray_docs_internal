@@ -963,8 +963,6 @@ module Docscribe
         return [] if info[:has_return]
 
         rescue_specs.filter_map do |exceptions, rtype|
-          next unless informative_rescue_type?(rtype)
-
           "#{indent}# @return [#{rtype}] if #{exceptions.join(', ')}"
         end
       end
@@ -1135,6 +1133,9 @@ module Docscribe
       end
 
       # Whether a YARD type string has invalid syntax.
+      #
+      # Called from both param (above) and return (below) validation, so no
+      # waterfall placement satisfies the ordering cop — exempt.
       #
       # @note module_function: defines #invalid_yard_type? (visibility: private)
       # @param [String?] type_str
@@ -1529,24 +1530,8 @@ module Docscribe
         return [] unless config.emit_rescue_conditional_returns?
 
         rescue_specs.filter_map do |exceptions, rtype|
-          next unless informative_rescue_type?(rtype)
-
           "#{indent}# @return [#{rtype}] if #{exceptions.join(', ')}"
         end
-      end
-
-      # Whether a rescue-branch type is worth documenting.
-      #
-      # Bare fallback (`Object`, blank) carries no information ("unknown on
-      # error") — emitting it only churns hand-written conditionals into
-      # noise on every aggressive rebuild.
-      #
-      # @note module_function: defines #informative_rescue_type? (visibility: private)
-      # @param [String, nil] rtype inferred rescue-branch type
-      # @return [Boolean] true if the type should be emitted
-      def informative_rescue_type?(rtype)
-        norm = normalize_type(rtype)
-        !norm.empty? && norm != 'Object'
       end
 
       # Build plugin tag lines
@@ -2299,8 +2284,6 @@ module Docscribe
         return if ctx[:info][:has_return]
 
         ctx[:rescue_specs].each do |exceptions, rtype|
-          next unless informative_rescue_type?(rtype)
-
           lines << "#{ctx[:indent]}# @return [#{rtype}] if #{exceptions.join(', ')}\n"
           reasons << {
             type: :missing_return,
