@@ -1,0 +1,9 @@
+{
+  "executablePath": "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+  "args": [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-gpu",
+    "--disable-dev-shm-usage"
+  ]
+}
