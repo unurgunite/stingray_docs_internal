@@ -90,7 +90,7 @@ module Docscribe
         # IO or path, so redirect to File::NULL rather than a StringIO.
         #
         # @private
-        # @return [Object] the block's return value
+        # @return [T] the block's return value
         def suppress_rbs_noise
           original_stderr = $stderr.dup
           $stderr.reopen(File::NULL, 'w')
