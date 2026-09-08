@@ -167,18 +167,6 @@ RSpec.describe Docscribe::CLI::RbsGen do
   end
 
   describe 'format_method_sig' do
-    def t(**kwargs)
-      described_class::YardTags.new(**kwargs)
-    end
-
-    def p(**kwargs)
-      described_class::ParamTag.new(**kwargs)
-    end
-
-    def d(**kwargs)
-      described_class::MethodDef.new(**kwargs)
-    end
-
     it 'formats instance method' do
       tags = t(params: [], return_type: 'String', options: [])
       md = d(name: 'foo', scope: :instance, container: nil, file: 'x.rb', line: 1, yard_tags: tags)
@@ -205,9 +193,6 @@ RSpec.describe Docscribe::CLI::RbsGen do
   end
 
   describe 'build_rbs_content' do
-    def d(**kwargs)
-      described_class::MethodDef.new(**kwargs)
-    end
     let(:defs) do
       [d(name: 'foo', container: 'Foo', line: 1, scope: :instance, file: 'x.rb', yard_tags: nil),
        d(name: 'bar', container: 'Foo', line: 2, scope: :instance, file: 'x.rb', yard_tags: nil),

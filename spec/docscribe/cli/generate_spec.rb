@@ -6,10 +6,6 @@ require 'tmpdir'
 require 'fileutils'
 
 RSpec.describe Docscribe::CLI::Generate do
-  def run(*argv)
-    described_class.run(argv)
-  end
-
   describe 'argument validation' do
     it 'returns 1 and warns when type is missing', :aggregate_failures do
       expect { expect(run).to eq(1) }.to output(/required/).to_stderr

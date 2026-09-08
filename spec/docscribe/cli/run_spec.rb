@@ -27,12 +27,6 @@ RSpec.describe Docscribe::CLI::Run do
   before { File.write("#{dir}/foo.rb", code) }
   after  { FileUtils.remove_entry(dir) }
 
-  shared_examples 'correct exit status' do
-    it 'exits 1 in check mode when updates needed' do
-      expect(result[2].exitstatus).to eq(1)
-    end
-  end
-
   describe 'check mode (default)' do
     let(:args) { ['foo.rb'] }
 
@@ -399,6 +393,136 @@ RSpec.describe Docscribe::CLI::Run do
       allow(Docscribe::Server).to receive(:ensure_running!)
       described_class.send(:ensure_server_running!, config_path: nil)
       expect(Docscribe::Server).to have_received(:ensure_running!).with(config_path: nil)
+    end
+  end
+
+  describe '.extract_cli_overrides' do
+    context 'when options contain false values' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { keep_descriptions: true, no_boilerplate: false, rbs: false, validate_types: false } }
+
+      it 'filters false values', :aggregate_failures do
+        expect(overrides).not_to have_key('no_boilerplate')
+        expect(overrides).not_to have_key('rbs')
+        expect(overrides).not_to have_key('validate_types')
+      end
+
+      it 'keeps true values' do
+        expect(overrides).to have_key('keep_descriptions')
+        expect(overrides['keep_descriptions']).to be(true)
+      end
+    end
+
+    context 'when options contain nil values' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { keep_descriptions: nil, no_boilerplate: true, rbs: nil } }
+
+      it 'filters nil values' do
+        expect(overrides).not_to have_key('keep_descriptions')
+        expect(overrides).not_to have_key('rbs')
+      end
+
+      it 'keeps non-nil true' do
+        expect(overrides['no_boilerplate']).to be(true)
+      end
+    end
+
+    context 'when options contain empty arrays' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { include: [], exclude: [], sig_dirs: [], include_file: ['a.rb'], exclude_file: [] } }
+
+      it 'filters empty arrays', :aggregate_failures do
+        expect(overrides).not_to have_key('include')
+        expect(overrides).not_to have_key('exclude')
+        expect(overrides).not_to have_key('sig_dirs')
+        expect(overrides).not_to have_key('exclude_file')
+      end
+
+      it 'keeps non-empty arrays' do
+        expect(overrides['include_file']).to eq(['a.rb'])
+      end
+    end
+
+    context 'when options contain valid arrays' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { include: ['lib/**/*.rb'], exclude: ['spec/**/*'], sig_dirs: ['sig'], rbi_dirs: ['sorbet/rbi'] } }
+
+      it 'keeps valid arrays', :aggregate_failures do
+        expect(overrides['include']).to eq(['lib/**/*.rb'])
+        expect(overrides['exclude']).to eq(['spec/**/*'])
+        expect(overrides['sig_dirs']).to eq(['sig'])
+        expect(overrides['rbi_dirs']).to eq(['sorbet/rbi'])
+      end
+    end
+
+    context 'when options contain non-override keys' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { keep_descriptions: true, unrelated: 'value', mode: :check } }
+
+      it 'slices only CLI_OVERRIDE_KEYS', :aggregate_failures do
+        expect(overrides).to have_key('keep_descriptions')
+        expect(overrides).not_to have_key('unrelated')
+        expect(overrides).not_to have_key('mode')
+      end
+    end
+
+    context 'when options are mixed' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) do
+        {
+          keep_descriptions: true,
+          no_boilerplate: false,
+          include: [],
+          exclude: ['excluded.rb'],
+          rbs: true,
+          rbs_collection: false,
+          sig_dirs: ['sig'],
+          sorbet: nil,
+          rbi_dirs: [],
+          validate_types: true
+        }
+      end
+
+      it 'correctly filters and keeps', :aggregate_failures do
+        expect(overrides).to include('keep_descriptions' => true, 'exclude' => ['excluded.rb'], 'rbs' => true, 'sig_dirs' => ['sig'], 'validate_types' => true)
+        expect(overrides).not_to have_key('no_boilerplate')
+        expect(overrides).not_to have_key('include')
+        expect(overrides).not_to have_key('rbs_collection')
+        expect(overrides).not_to have_key('sorbet')
+        expect(overrides).not_to have_key('rbi_dirs')
+      end
+
+      it 'stringifies keys' do
+        expect(overrides.keys).to all(be_a(String))
+      end
+    end
+
+    context 'when options are empty' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { {} }
+
+      it 'returns empty hash' do
+        expect(overrides).to eq({})
+      end
+    end
+
+    context 'when options contain empty string vs false' do
+      subject(:overrides) { described_class.send(:extract_cli_overrides, options) }
+
+      let(:options) { { keep_descriptions: '', rbs: false } }
+
+      it 'keeps empty string but filters false', :aggregate_failures do
+        expect(overrides).to have_key('keep_descriptions')
+        expect(overrides['keep_descriptions']).to eq('')
+        expect(overrides).not_to have_key('rbs')
+      end
     end
   end
 end

@@ -5,19 +5,6 @@ RSpec.describe Docscribe::Plugin::Base::CollectorPlugin do
 
   after { Docscribe::Plugin::Registry.clear! }
 
-  def build_override_plugin(return_type:, param_types: {}, tags: [])
-    Class.new(TestCollectorPluginBase) do
-      include TestPlugins::FindFirst
-
-      def collect(ast, _buffer)
-        node = find_first(ast, :defs) || find_first(ast, :def)
-        return [] unless node
-
-        [{ anchor_node: node, method_override: { return_type: @return_type, param_types: @param_types, tags: @tags } }]
-      end
-    end.new(return_type: return_type, param_types: param_types, tags: tags)
-  end
-
   let(:conf) do
     Docscribe::Config.new(
       'emit' => {

@@ -4,6 +4,10 @@ module Docscribe
       module Formatter
         def self.to_rbs: (node?) -> String
         private
+        def self.rbs_for_node: (node node) -> (String | nil)
+        def self.simple_type: (node node) -> (String | nil)
+        def self.composite_type: (node node) -> (String | nil)
+        def self.collection_type: (node node) -> (String | nil)
         def self.format_named: (Named) -> String
         def self.format_generic: (Generic) -> String
         def self.format_union: (Union) -> String

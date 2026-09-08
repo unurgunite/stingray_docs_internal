@@ -28,7 +28,8 @@ module Docscribe
         no_boilerplate: false,
         progress: false,
         parallel: false,
-        server: false
+        server: false,
+        validate_types: false
       }.freeze
 
       module_function
@@ -39,7 +40,7 @@ module Docscribe
                docscribe generate <type> <name> [options]
                docscribe sigs [options] [files...]
                docscribe rbs [options] [files...]
-               docscribe update_types [directory]
+               docscribe update_types [directory|file]
                docscribe check_for_comments [paths...]
 
         Default behavior:
@@ -63,6 +64,7 @@ module Docscribe
                 --sorbet                   Use Sorbet signatures from inline sigs / RBI files when available
                 --rbi-dir DIR              Add a Sorbet RBI directory (repeatable). Implies --sorbet.
                 --rbs-collection           Auto-discover RBS collection from rbs_collection.lock.yaml. Implies --rbs.
+                --validate-types           Validate YARD types against inferred/RBS types and report mismatches
 
         Filtering:
                 --include PATTERN          Include PATTERN (method id or file path; glob or /regex/)
@@ -202,6 +204,7 @@ module Docscribe
         define_sorbet_option(opts, options)
         define_rbi_dir_option(opts, options)
         define_rbs_collection_option(opts, options)
+        define_validate_types_option(opts, options)
       end
 
       # Define rbs option
@@ -264,6 +267,18 @@ module Docscribe
         opts.on('--rbs-collection', 'Auto-discover RBS collection from rbs_collection.lock.yaml. Implies --rbs.') do
           options[:rbs] = true
           options[:rbs_collection] = true
+        end
+      end
+
+      # Define validate types option
+      #
+      # @note module_function: defines #define_validate_types_option (visibility: private)
+      # @param [OptionParser] opts the option parser to configure
+      # @param [Hash<Symbol, Object>] options mutable parsed options hash
+      # @return [void]
+      def define_validate_types_option(opts, options)
+        opts.on('--[no-]validate-types', 'Validate YARD types against inferred/RBS types and report mismatches') do |value|
+          options[:validate_types] = value
         end
       end
 

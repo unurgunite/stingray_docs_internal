@@ -293,11 +293,7 @@ module DocscribePlugins
     # @param [Object] col_name
     # @return [Object]
     def recognized_column?(col_type, col_name)
-      RECOGNIZED_COLUMNS.include?(col_type.to_sym) &&
-        !SKIPPED_COLUMNS.include?(col_name)
-      enddef recognized_column?(col_type, col_name)
-      RECOGNIZED_COLUMNS.include?(col_type.to_sym) &&
-        !SKIPPED_COLUMNS.include?(col_name)
+      RECOGNIZED_COLUMNS.include?(col_type.to_sym) && !SKIPPED_COLUMNS.include?(col_name)
     end
 
     # Build @!attribute doc blocks for all columns of a table.

@@ -1,6 +1,12 @@
 module Docscribe
   module CLI
     module Run
+      type run_ctx = { pwd: Pathname, display_path: String, options: Formatters::opts, state: Formatters::state, conf: Config }
+
+      type pool = { paths: Array[String], state: Formatters::state, options: Formatters::opts, conf: Config, pwd: Pathname, mutex: Mutex, error_mutex: Mutex }
+
+      type rewrite_result = { output: String, changes: Array[Formatters::change] }
+
       INITIAL_RUN_STATE: Formatters::state
       PARALLEL_DEFAULT_THREADS: Integer
 
@@ -12,17 +18,17 @@ module Docscribe
 
       def self.build_light_config: (Formatters::opts options) -> Config
 
-      def self.extract_cli_overrides: (Formatters::opts options) -> Hash[String, untyped]
+      def self.extract_cli_overrides: (Formatters::opts options) -> Hash[String, Object]
 
-      def self.run_files_via_server: (Docscribe::Server::Client client, Array[String] paths, Formatters::opts options) -> Integer
+      def self.run_files_via_server: (Server::Client client, Array[String] paths, Formatters::opts options) -> Integer
 
       def self.build_config: (Formatters::opts options) -> Config
 
       def self.run_stdin: (options: Formatters::opts, conf: Config) -> Integer
 
-      def self.stdin_rewrite_result: (Formatters::opts options, Config conf) -> Hash[Symbol, untyped]
+      def self.stdin_rewrite_result: (Formatters::opts options, Config conf) -> rewrite_result
 
-      def self.core_rbs_provider_for: (Config conf) -> (Docscribe::Types::RBS::Provider | nil)
+      def self.core_rbs_provider_for: (Config conf) -> (Types::RBS::Provider | nil)
 
       def self.filtered_paths: (Array[String] argv, Config conf) -> Array[String]
 
@@ -34,13 +40,13 @@ module Docscribe
 
       def self.process_one_file_via_server: (Docscribe::Server::Client client, String path, options: Formatters::opts, pwd: Pathname, state: Formatters::state) -> void
 
-      def self.send_server_request: (Docscribe::Server::Client client, String path, Formatters::opts options) -> (Hash[String, untyped] | nil)
+      def self.send_server_request: (Docscribe::Server::Client client, String path, Formatters::opts options) -> (Hash[String, Object] | nil)
 
       def self.server_error: (String path, Formatters::state state, String message) -> void
 
-      def self.dispatch_server_result: (Hash[String, untyped] result, Array[Formatters::change] file_changes, String path, **untyped ctx) -> void
+      def self.dispatch_server_result: (Hash[String, Object] result, Array[Formatters::change] file_changes, String path, **run_ctx ctx) -> void
 
-      def self.write_server_result: (Hash[String, untyped] result, Array[Formatters::change] file_changes, display_path: String, options: Formatters::opts, state: Formatters::state) -> void
+      def self.write_server_result: (Hash[String, Object] result, Array[Formatters::change] file_changes, display_path: String, options: Formatters::opts, state: Formatters::state) -> void
 
       def self.handle_via_server_check: (String path, file_changes: Array[Formatters::change], display_path: String, options: Formatters::opts, state: Formatters::state) -> void
 
@@ -48,7 +54,7 @@ module Docscribe
 
       def self.update_check_failure_state: (String path, Array[Formatters::change] file_changes, Formatters::state state) -> void
 
-      def self.symbolize_change: (Hash[String, untyped] change) -> Formatters::change
+      def self.symbolize_change: (Hash[String, Object] change) -> Formatters::change
 
       def self.expand_paths: (Array[String] args) -> Array[String]
 
@@ -72,17 +78,33 @@ module Docscribe
 
       def self.report_progress: (Formatters::state state, Formatters::opts options, String display_path) -> void
 
-      def self.dispatch_file_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **untyped ctx) -> void
+      def self.dispatch_file_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **run_ctx ctx) -> void
 
       def self.display_path_for: (String path, pwd: Pathname) -> String
 
       def self.read_source_for_path: (String path, display_path: String, options: Formatters::opts, state: Formatters::state) -> (String | nil)
 
-      def self.rewrite_result_for_path: (String path, src: String, ctx: Hash[Symbol, untyped]) -> (Hash[Symbol, untyped] | nil)
+      def self.rewrite_result_for_path: (String path, src: String, ctx: run_ctx) -> (rewrite_result | nil)
 
-      def self.record_rewrite_error: (String path, StandardError error, Hash[Symbol, untyped] ctx) -> void
+      def self.record_rewrite_error: (String path, StandardError error, run_ctx ctx) -> void
 
-      def self.handle_check_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **untyped ctx) -> void
+      def self.handle_check_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **run_ctx ctx) -> void
+
+      def self.real_changes?: (Array[Formatters::change] file_changes) -> bool
+
+      def self.validated_mismatch?: (run_ctx ctx, Array[Formatters::change] type_mismatches, String out, String src, bool has_real_changes) -> bool
+
+      def self.validate_types_enabled?: (run_ctx ctx) -> bool
+
+      def self.no_real_changes?: (String out, String src, bool has_real_changes) -> bool
+
+      def self.handle_validated_type_mismatch: (String path, Array[Formatters::change] file_changes, Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
+
+      def self.track_validated_mismatch: (Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
+
+      def self.handle_no_changes: (String path, Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
+
+      def self.handle_failed_check: (String path, Array[Formatters::change] file_changes, run_ctx ctx) -> void
 
       def self.type_mismatch_changes: (Array[Formatters::change] file_changes) -> Array[Formatters::change]
 
@@ -90,9 +112,9 @@ module Docscribe
 
       def self.handle_check_failed: (String path, file_changes: Array[Formatters::change], display_path: String, options: Formatters::opts, state: Formatters::state) -> void
 
-      def self.handle_write_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **untyped ctx) -> void
+      def self.handle_write_result: (String path, src: String, out: String, file_changes: Array[Formatters::change], **run_ctx ctx) -> void
 
-      def self.apply_correction: (String path, String out, Array[Formatters::change] file_changes, Hash[Symbol, untyped] ctx) -> void
+      def self.apply_correction: (String path, String out, Array[Formatters::change] file_changes, run_ctx ctx) -> void
 
       def self.update_correction_state: (Formatters::state state, String display_path, Array[Formatters::change] file_changes) -> void
 
@@ -114,13 +136,13 @@ module Docscribe
 
       def self.build_failure_line: (Formatters::state state, Integer type_mismatch_count, Integer checked_error) -> String
 
-      def self.run_parallel_workers: (untyped options, untyped conf, Array[String] paths, Formatters::state state) -> void
+      def self.run_parallel_workers: (Formatters::opts options, Config conf, Array[String] paths, Formatters::state state) -> void
 
-      def self.parallel_worker: (Hash[Symbol, untyped] pool) -> Thread
+      def self.parallel_worker: (pool pool) -> Thread
 
       def self.fetch_work: (Array[String] paths, Mutex mutex) -> String?
 
-      def self.run_and_merge: (String path, Hash[Symbol, untyped] pool) -> void
+      def self.run_and_merge: (String path, pool pool) -> void
 
       def self.handle_worker_error: (StandardError exception, String path, Formatters::state state, Mutex error_mutex) -> void
 

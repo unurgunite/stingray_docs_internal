@@ -20,8 +20,10 @@ module Docscribe
 
     def self.unify_types: ((String | nil) type_a, (String | nil) type_b, ?fallback_type: String, ?nil_as_optional: bool) -> String
 
-    def self.analyze_behavior: (untyped node, untyped method_name) -> Hash[Symbol, untyped]
-    def self.infer_behavior_description: (untyped node, untyped method_name) -> String?
-    def self.extract_body: (untyped node) -> untyped?
+    def self.analyze_behavior: (Parser::AST::Node? node, Symbol? method_name) -> Hash[Symbol, bool]
+
+    def self.infer_behavior_description: (Hash[Symbol, bool] analysis, Symbol? method_name) -> String?
+
+    def self.extract_body: (Parser::AST::Node node) -> Parser::AST::Node?
   end
 end

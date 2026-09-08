@@ -23,10 +23,9 @@ module Docscribe
         raises = [] #: Array[String]
 
         ASTWalk.walk(node) do |n|
-          case n.type
-          when :resbody
+          if n&.type == :resbody
             raises.concat(exception_names_from_rescue_list(n.children[0]))
-          when :send
+          elsif n&.type == :send
             collect_send_raise(raises, n)
           end
         end
@@ -45,9 +44,9 @@ module Docscribe
       # @param [Parser::AST::Node, nil] exc_list rescue exception list node
       # @return [Array<String>]
       def exception_names_from_rescue_list(exc_list)
-        if exc_list.nil?
-          [DEFAULT_ERROR]
-        elsif exc_list.type == :array
+        return [DEFAULT_ERROR] unless exc_list.is_a?(Parser::AST::Node)
+
+        if exc_list.type == :array
           exc_list.children.map { |e| Names.const_full_name(e) || DEFAULT_ERROR }
         else
           [Names.const_full_name(exc_list) || DEFAULT_ERROR]

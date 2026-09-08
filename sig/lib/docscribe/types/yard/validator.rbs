@@ -1,0 +1,21 @@
+module Docscribe
+  module Types
+    module Yard
+      module Validator
+        def self?.valid?: ((String | nil) type_str) -> bool
+
+        def self?.syntax_valid?: ((String | nil) type_str) -> bool
+
+        def self?.blank_type?: ((String | nil) type_str) -> bool
+
+        def self?.artefact_type?: ((String | nil) type_str) -> bool
+
+        def self?.balanced_brackets?: ((String | nil) type_str) -> bool
+
+        def self?.process_bracket_char?: (String char, Array[String] stack, Hash[String, String] pairs, Array[String] opens) -> bool
+
+        def self?.fully_consumed?: ((String | nil) type_str) -> bool
+      end
+    end
+  end
+end

@@ -27,6 +27,10 @@ module Docscribe
 
       def self?.apply_output_overrides: (Hash[String, untyped] raw, Hash[Symbol, untyped] options) -> void
 
+      def self?.validation_overrides?: (Hash[Symbol, untyped] options) -> bool
+
+      def self?.apply_validation_overrides: (Hash[String, untyped] raw, Hash[Symbol, untyped] options) -> void
+
       def self?.warn_missing_rbs_collection: (Config conf, Hash[Symbol, untyped] options) -> void
     end
   end

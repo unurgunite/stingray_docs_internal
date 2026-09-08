@@ -1,7 +1,7 @@
 module Docscribe
   module CLI
     module Options
-      DEFAULT: { stdin: false, mode: :check, strategy: :safe, verbose: false, explain: false, quiet: false, format: :text, config: nil, include: Array[String], exclude: Array[String], include_file: Array[String], exclude_file: Array[String], rbs: false, sig_dirs: Array[String], sorbet: false, rbi_dirs: Array[String], rbs_collection: false, keep_descriptions: false, no_boilerplate: false, progress: false, server: false }
+      DEFAULT: { stdin: false, mode: :check, strategy: :safe, verbose: false, explain: false, quiet: false, format: :text, config: nil, include: Array[String], exclude: Array[String], include_file: Array[String], exclude_file: Array[String], rbs: false, sig_dirs: Array[String], sorbet: false, rbi_dirs: Array[String], rbs_collection: false, keep_descriptions: false, no_boilerplate: false, progress: false, parallel: false, server: false, validate_types: false }
 
       BANNER: String
 
@@ -30,6 +30,8 @@ module Docscribe
       def self?.define_rbi_dir_option: (OptionParser opts, Hash[Symbol, untyped] options) -> void
 
       def self?.define_rbs_collection_option: (OptionParser opts, Hash[Symbol, untyped] options) -> void
+
+      def self?.define_validate_types_option: (OptionParser opts, Hash[Symbol, untyped] options) -> void
 
       def self?.define_filter_options: (OptionParser opts, Hash[Symbol, untyped] options) -> void
 

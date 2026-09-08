@@ -8,9 +8,9 @@ module Docscribe
                             insert update_all delete_all].freeze
 
       class << self
-        # @param [Object] body
-        # @param [Object] method_name
-        # @return [Hash<Symbol, Object>]
+        # @param [Parser::AST::Node, nil] body
+        # @param [Symbol?] method_name
+        # @return [Hash<Symbol, Boolean, String, nil>]
         def analyze(body, method_name)
           result = default_result(method_name)
 
@@ -20,8 +20,8 @@ module Docscribe
           result
         end
 
-        # @param [Object] method_name
-        # @return [Hash<Symbol, Object>]
+        # @param [Symbol?] method_name
+        # @return [Hash<Symbol, Boolean, String, nil>]
         def default_result(method_name)
           {
             predicate: method_name&.to_s&.end_with?('?') || false,
@@ -33,8 +33,8 @@ module Docscribe
           }
         end
 
-        # @param [Hash<Symbol, Object>] analysis
-        # @param [Object] _method_name
+        # @param [Hash<Symbol, Boolean, String, nil>] analysis
+        # @param [Symbol?] _method_name
         # @return [String?]
         def infer_description(analysis, _method_name)
           return nil unless analysis[:has_side_effects] || analysis[:predicate]
@@ -51,8 +51,8 @@ module Docscribe
         private
 
         # @private
-        # @param [Object] node
-        # @param [Hash<Symbol, Object>] result
+        # @param [Parser::AST::Node] node
+        # @param [Hash<Symbol, Boolean, String, nil>] result
         # @return [void]
         def analyze_body(node, result)
           case node.type
@@ -68,8 +68,8 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
-        # @param [Hash<Symbol, Object>] result
+        # @param [Parser::AST::Node] node
+        # @param [Hash<Symbol, Boolean, String, nil>] result
         # @return [void]
         def recurse_children(node, result)
           node.children.each do |child|
@@ -78,8 +78,8 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
-        # @param [Hash<Symbol, Object>] result
+        # @param [Parser::AST::Node] node
+        # @param [Hash<Symbol, Boolean, String, nil>] result
         # @return [void]
         def analyze_send(node, result)
           _receiver, method_name = *node

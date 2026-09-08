@@ -1,0 +1,169 @@
+module Docscribe
+  module Validator
+    module GenericCompatibility
+      CHECKS: Hash[Symbol, Symbol]
+
+      def self.compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?fallback_type: String, ?method_name: (String | Symbol | nil)) -> bool
+      def compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?fallback_type: String, ?method_name: (String | Symbol | nil)) -> bool
+
+      def self.void_compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?String fallback_type, ?method_name: (String | Symbol | nil)) -> bool
+      def void_compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?String fallback_type, ?method_name: (String | Symbol | nil)) -> bool
+
+      def self.fallback_union_check?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type) -> bool
+      def fallback_union_check?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type) -> bool
+
+      def self.generic_base_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def generic_base_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.short_name_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def short_name_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.alias_hash_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def alias_hash_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.alias_hash_pair?: (String alias_type, String hash_type) -> bool
+      def alias_hash_pair?: (String alias_type, String hash_type) -> bool
+
+      def self.tuple_array_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def tuple_array_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.optional_nil_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def optional_nil_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.union_containment?: ((String | nil) yard, (String | nil) expected) -> bool
+      def union_containment?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.optional_suffix_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def optional_suffix_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.generic_inner_alias_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+      def generic_inner_alias_compatible?: ((String | nil) yard, (String | nil) expected) -> bool
+
+      def self.union_vs_optional_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def union_vs_optional_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.question_vs_comma_nil?: (String norm_yard, String norm_expected) -> bool
+      def question_vs_comma_nil?: (String norm_yard, String norm_expected) -> bool
+
+      def self.suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.pipe_aware_suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def pipe_aware_suffix_vs_union_first?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.optional_forms_equal?: ((String | nil) first, (String | nil) second) -> bool
+      def optional_forms_equal?: ((String | nil) first, (String | nil) second) -> bool
+
+      def self.optional_canonical_parts: ((String | nil) str) -> Array[String]
+      def optional_canonical_parts: ((String | nil) str) -> Array[String]
+
+      def self.object_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def object_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.split_top_level_commas_local: (String str) -> Array[String]
+      def split_top_level_commas_local: (String str) -> Array[String]
+
+      def self.generic_pair?: (String norm_yard, String norm_expected) -> bool
+      def generic_pair?: (String norm_yard, String norm_expected) -> bool
+
+      def self.extract_inner: (String normalized) -> (String | nil)
+      def extract_inner: (String normalized) -> (String | nil)
+
+      def self.inner_has_alias?: (String inner) -> bool
+      def inner_has_alias?: (String inner) -> bool
+
+      def self.alias_token?: (String token) -> bool
+      def alias_token?: (String token) -> bool
+
+      def self.question_nil_pair?: (String norm_yard, String norm_expected) -> bool
+      def question_nil_pair?: (String norm_yard, String norm_expected) -> bool
+
+      def self.comma_nil_pair?: (String norm_yard, String norm_expected) -> bool
+      def comma_nil_pair?: (String norm_yard, String norm_expected) -> bool
+
+      def self.node_nil_pair?: (String norm_yard, String norm_expected) -> bool
+      def node_nil_pair?: (String norm_yard, String norm_expected) -> bool
+
+      def self.generic_string?: (String normalized) -> bool
+      def generic_string?: (String normalized) -> bool
+
+      def self.short_compatible?: (String short_yard, String short_expected, String norm_yard, String norm_expected) -> bool
+      def short_compatible?: (String short_yard, String short_expected, String norm_yard, String norm_expected) -> bool
+
+      def self.fallback_union?: ((String | nil) type_str, String fallback) -> bool
+      def fallback_union?: ((String | nil) type_str, String fallback) -> bool
+
+      def self.short_name: (String type_str) -> String
+      def short_name: (String type_str) -> String
+
+      def self.base_name: (String type_str) -> String
+      def base_name: (String type_str) -> String
+
+      def self.normalize: ((String | nil) type_str) -> String
+      def normalize: ((String | nil) type_str) -> String
+
+      def self.canonical_without_nil: (Array[String] canonical) -> Array[String]
+      def canonical_without_nil: (Array[String] canonical) -> Array[String]
+
+      def self.bare_alias_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def bare_alias_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def self.bare_alias?: (String normalized) -> bool
+      def bare_alias?: (String normalized) -> bool
+
+      def self.bare_single_cap?: (String normalized) -> bool
+      def bare_single_cap?: (String normalized) -> bool
+
+      def self.union_parts_compatible?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type, (String | Symbol | nil) method_name) -> bool
+      def union_parts_compatible?: ((String | nil) yard_type, (String | nil) expected_type, String fallback_type, (String | Symbol | nil) method_name) -> bool
+
+      def self.union_parts: (String str) -> Array[String]
+      def union_parts: (String str) -> Array[String]
+
+      def self.single_vs_union?: (Array[String] single_parts, Array[String] union_parts, String fallback_type) -> bool
+      def single_vs_union?: (Array[String] single_parts, Array[String] union_parts, String fallback_type) -> bool
+
+      def self.part_compatible_with_single?: (String single, String part, String fallback_type) -> bool
+      def part_compatible_with_single?: (String single, String part, String fallback_type) -> bool
+
+      def self.void_fallback_or_nil?: ((String | nil) expected_type, String fallback_type) -> bool
+      def void_fallback_or_nil?: ((String | nil) expected_type, String fallback_type) -> bool
+
+      def self.void_initialize_compatible?: ((String | nil) expected_type, (String | Symbol | nil) method_name) -> bool
+      def void_initialize_compatible?: ((String | nil) expected_type, (String | Symbol | nil) method_name) -> bool
+
+      def self.void_predicate_compatible?: ((String | nil) expected_type, (String | Symbol | nil) method_name) -> bool
+      def void_predicate_compatible?: ((String | nil) expected_type, (String | Symbol | nil) method_name) -> bool
+
+      def self.object_supertype_pair?: (Array[String] yard_without_nil, Array[String] exp_without_nil) -> bool
+      def object_supertype_pair?: (Array[String] yard_without_nil, Array[String] exp_without_nil) -> bool
+
+      def self.empty_str?: ((String | nil) str) -> bool
+      def empty_str?: ((String | nil) str) -> bool
+
+      def self.normalized_union_str: ((String | nil) str) -> String
+      def normalized_union_str: ((String | nil) str) -> String
+
+      def self.single_optional_form?: (String str) -> bool
+      def single_optional_form?: (String str) -> bool
+
+      def self.canonicalize_parts: (Array[String] parts) -> Array[String]
+      def canonicalize_parts: (Array[String] parts) -> Array[String]
+
+      def self.single_optional_parts: (String str) -> Array[String]
+      def single_optional_parts: (String str) -> Array[String]
+
+      def self.expand_optional_parts: (Array[String] parts) -> Array[String]
+      def expand_optional_parts: (Array[String] parts) -> Array[String]
+
+      def self.handle_split_char: (String chr, Hash[Symbol, untyped] state) -> void
+      def handle_split_char: (String chr, Hash[Symbol, untyped] state) -> void
+
+      def self.update_split_depth: (String chr, Hash[Symbol, untyped] state) -> void
+      def update_split_depth: (String chr, Hash[Symbol, untyped] state) -> void
+
+      def self.handle_split_comma: (Hash[Symbol, untyped] state) -> void
+      def handle_split_comma: (Hash[Symbol, untyped] state) -> void
+    end
+  end
+end

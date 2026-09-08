@@ -3,10 +3,15 @@
 require 'docscribe/inline_rewriter'
 
 RSpec.describe Docscribe::InlineRewriter do
-  it 'preserves tab indentation when inserting docs' do
-    code = "class A\n\tdef foo; 1; end\nend\n"
-    out = inline(code, config: Docscribe::Config.new('emit' => { 'header' => true }))
-    expect(out).to include("\t# +A#foo+ -> Integer")
+  describe 'preserves tab indentation when inserting docs' do
+    subject(:out) { inline(code, config: config) }
+
+    let(:code) { "class A\n\tdef foo; 1; end\nend\n" }
+    let(:config) { Docscribe::Config.new('emit' => { 'header' => true }) }
+
+    it 'uses tab indentation for header' do
+      expect(out).to include("\t# +A#foo+ -> Integer")
+    end
   end
 
   describe 'with inline modifier defs' do

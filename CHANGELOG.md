@@ -1,3 +1,43 @@
+## 1.6.2
+
+### Added
+
+- **File-scoped `update_types`** — `docscribe update_types path/to/file.rb` updates a single file; the daemon
+  accepts `{file}` with priority over `{dir}`. Extra flags (`--rbs`, `--sig-dir`, `--rbs-collection`,
+  `--[no-]validate-types`, `--no-rbs`) pass through to both passes.
+- **`source` on type mismatches** — every `updated @return`/`@param`/`invalid type` change carries
+  `source: "rbs" | "infer" | "syntax"` through JSON, SARIF and daemon responses, so IDE plugins can route RBS
+  types to "Update types" and everything else to "Fix YARD".
+- **`--[no-]validate-types` flag and `validate_types` config key** — validate YARD types against inferred/RBS
+  types and report mismatches.
+- **`rbs.collection: true` honored without flags** — plain `check` (CLI, daemon, IDE) auto-discovers the RBS
+  collection from `rbs_collection.lock.yaml`, same as `--rbs-collection`.
+- **Rescue-branch constant resolution** — rescue bodies referencing constants (e.g. `FALLBACK_TYPE`) infer the
+  constant's value type when visible from the method's scope.
+- **Per-method failure isolation** — a crashing method is skipped with a stderr warning instead of blanking
+  the whole file.
+
+### Changed
+
+- **README updated:** file-scoped `update_types`, `--[no-]validate-types`, `validate_types` config key, daemon
+  `update_types` method, `source` field in changes, RBS collection autodiscovery, inference improvements (generics,
+  `void` idioms, block types), conditional `@return` stability notes.
+- **CI:** docs check runs from the repo root, installs the RBS collection, and skips rubies without RBS (2.7/3.0/3.1);
+  `rbs` gem is lazy-required with fallback, `set` is required eagerly.
+
+### Fixed
+
+- **Conditional `@return [X] if Error` no longer overwrites the main return type** — kills the check/update_types
+  ping-pong.
+- **Fallback rescue types are not emitted as noise** — bare `Object` conditionals are skipped.
+- **Hash/generic compatibility** — `Hash` vs `Hash<Symbol, Config>`, `Hash[Symbol, untyped]` normalization,
+  `**kwargs` alignment (`Hash[Symbol,untyped]` vs `Hash<Symbol,Object>`), `void` for initializers/predicates,
+  `String?` vs `String, nil` unions, short names and tuple/array equivalence.
+- **Block/operator inference** — `map`/`then` synthesize `Array<inner>`, shovel/`op_asgn`/`csend` resolve via RBS,
+  `each_with_index` chains infer element types.
+- **YARD parser nil-guards** and trailing-comment normalization (`to_h#foobar` no longer hides diagnostics).
+- **`require 'rbs'` crash** on rubies/bundles without the gem (lazy require + fallback list).
+
 ## 1.6.0
 
 ### Added

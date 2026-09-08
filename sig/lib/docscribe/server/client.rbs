@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+module Docscribe
+  module Server
+    class Client
+      @socket_path: String
+
+      def initialize: (?String? socket_path, ?config_path: String?) -> void
+
+      def check: (file: String, ?strategy: Symbol, **untyped) -> Hash[String, untyped]?
+      def fix: (file: String, ?strategy: Symbol, **untyped) -> Hash[String, untyped]?
+
+      def shutdown: () -> Hash[String, untyped]?
+      def ping: () -> Hash[String, untyped]?
+
+      def update_types: (?dir: String, **untyped) -> Hash[String, untyped]?
+
+      private
+
+      def request: (String method, **untyped) -> Hash[String, untyped]?
+      def connect: [U] { (UNIXSocket) -> U } -> U?
+    end
+  end
+end

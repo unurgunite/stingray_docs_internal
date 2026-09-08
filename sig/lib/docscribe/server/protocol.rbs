@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+module Docscribe
+  module Server
+    module Protocol
+      def self?.build_request: [T] (String method, ?Hash[Symbol, T] params) -> { jsonrpc: String, id: String, method: String, params: Hash[Symbol, T] }
+
+      def self?.parse_response: (String line) -> Hash[String, untyped]?
+      def self?.serialize: (untyped hash) -> String
+    end
+  end
+end

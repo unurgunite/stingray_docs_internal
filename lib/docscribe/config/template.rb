@@ -106,6 +106,9 @@ module Docscribe
         # Skip @param for anonymous block arguments (&) (Ruby 3.2+)
         skip_anonymous_block_params: false
 
+        # Validate YARD types against inferred/RBS types
+        validate_types: false
+
         plugins:
           # Load custom plugins
           # Example:

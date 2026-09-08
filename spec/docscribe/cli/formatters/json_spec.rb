@@ -18,7 +18,7 @@ RSpec.describe Docscribe::CLI::Formatters::Json do
     }
   end
 
-  def parse_output
+  let(:parse_output) do
     JSON.parse(capture_stdout { formatter.format_check_summary(state: state, options: options) })
   end
 
@@ -95,6 +95,20 @@ RSpec.describe Docscribe::CLI::Formatters::Json do
 
       it 'uses UpdatedReturn cop_name' do
         expect(parse_output['files'][0]['offenses'][0]['cop_name']).to eq('Docscribe/UpdatedReturn')
+      end
+    end
+
+    context 'with source field' do
+      before do
+        state.merge!(
+          checked_fail: 1,
+          fail_paths: ['test.rb'],
+          fail_changes: { 'test.rb' => [{ type: :updated_param, line: 5, method: 'Foo#bar', source: 'rbs' }] }
+        )
+      end
+
+      it 'includes source in offense' do
+        expect(parse_output['files'][0]['offenses'][0]['source']).to eq('rbs')
       end
     end
 

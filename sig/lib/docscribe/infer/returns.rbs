@@ -9,21 +9,23 @@ module Docscribe
 
       def self?.infer_return_type_from_node: (Parser::AST::Node node) -> String
 
-      def self?.returns_spec_from_node: (Parser::AST::Node node, ?fallback_type: String, ?nil_as_optional: bool, ?core_rbs_provider: untyped?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> untyped
+      def self?.returns_spec_from_node: (Parser::AST::Node node, ?fallback_type: String, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> Hash[Symbol, untyped]
+
+      def self?.populate_spec_with_types: (Hash[Symbol, untyped] spec, Parser::AST::Node body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> void
 
       def self?.extract_def_body: (Parser::AST::Node node) -> (Parser::AST::Node | nil)
 
-      def self?.populate_returns_spec: (untyped spec, Parser::AST::Node body, (Hash[untyped, untyped] | nil) local_var_types, **untyped opts) -> untyped
+      def self?.populate_returns_spec: (Hash[Symbol, untyped] spec, Parser::AST::Node body, Hash[String, String]? local_var_types, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?) -> void
 
-      def self?.infer_normal_return_type: (Parser::AST::Node body, **untyped opts) -> String
+      def self?.infer_normal_return_type: (Parser::AST::Node body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> String
 
-      def self?.process_rescue_body: (untyped spec, Parser::AST::Node body, **untyped opts) -> untyped
+      def self?.process_rescue_body: (Hash[Symbol, untyped] spec, Parser::AST::Node body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> void
 
-      def self?.process_rescue_branches: (untyped spec, Parser::AST::Node body, **untyped opts) -> Array[untyped]
+      def self?.process_rescue_branches: (Hash[Symbol, untyped] spec, Parser::AST::Node body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> void
 
-      def self?.build_local_variable_types: (Parser::AST::Node node, **untyped opts) -> (Hash[String, String] | nil)
+      def self?.build_local_variable_types: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (Hash[String, String] | nil)
 
-      def self?.collect_assignment_type: (Parser::AST::Node node, Hash[String, String] types, **untyped opts) -> void
+      def self?.collect_assignment_type: (Parser::AST::Node node, Hash[String, String] types, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> void
 
       def self?.assignment_name_and_value: (Parser::AST::Node node) -> [ (String | nil), (Parser::AST::Node | nil) ]
 
@@ -31,93 +33,287 @@ module Docscribe
 
       def self?.compound_name_and_value: (Parser::AST::Node node) -> [ (String | nil), (Parser::AST::Node | nil) ]
 
-      def self?.collect_rescue_branches: (Parser::AST::Node node, **untyped opts) -> Array[(String | nil)]
+      def self?.collect_rescue_branches: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> Array[(String | nil)]
 
-      def self?.handle_lvar_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_lvar_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_ivar_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_ivar_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_gvar_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_gvar_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_cvar_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_cvar_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_lvasgn_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_lvasgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_ivasgn_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_ivasgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_gvasgn_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_gvasgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_cvasgn_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_cvasgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_op_asgn_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_op_asgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_or_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_or_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_and_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_and_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_kwbegin_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_kwbegin_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_rescue_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_rescue_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_ensure_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_ensure_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_defined_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_defined_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_zsuper_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_zsuper_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_super_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_super_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_yield_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_yield_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_case_match_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_case_match_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_in_pattern_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_in_pattern_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.process_pattern_branches: (Parser::AST::Node node, **untyped opts) -> Array[String]
+      def self?.process_pattern_branches: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> Array[String]
 
-      def self?.handle_begin_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_begin_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_if_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_if_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_case_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_case_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.process_case_branches: (Parser::AST::Node node, **untyped opts) -> Array[String]
+      def self?.process_case_branches: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> Array[String]
 
-      def self?.handle_block_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_block_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_send_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.block_send_rbs_type: (Parser::AST::Node node, Parser::AST::Node send_node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.resolve_rbs_for_send: ((Parser::AST::Node | nil) recv, Symbol meth, (untyped | nil) core_rbs_provider, (Hash[untyped, untyped] | nil) local_var_types, (Hash[String, String] | nil) param_types) -> (String | nil)
+      def self?.block_rbs_with_inner: ((String | nil) rbs_type, Parser::AST::Node block_body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.resolve_rbs_for_send_with_signature_provider: ((Parser::AST::Node | nil) recv, Symbol meth, **untyped opts) -> (String | nil)
+      def self?.generic_placeholder?: ((String | nil) rbs_type) -> bool
 
-      def self?.receiver_rbs_type_name: ((Parser::AST::Node | nil) recv, (untyped | nil) core_rbs_provider, (Hash[untyped, untyped] | nil) local_var_types, (Hash[String, String] | nil) param_types) -> (String | nil)
+      def self?.handle_send_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.resolve_lvar_rbs: (Parser::AST::Node? recv, Symbol meth, (untyped | nil) core_rbs_provider, (Hash[untyped, untyped] | nil) local_var_types, (Hash[String, String] | nil) param_types) -> (String | nil)
+      def self?.synthetic_enumerator_type: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.lookup_lvar_type: (untyped lvar_name, (Hash[untyped, untyped] | nil) local_var_types, (Hash[String, String] | nil) param_types) -> (String | nil)
+      def self?.synthetic_hash_type: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.resolve_chained_send_rbs: (Parser::AST::Node? recv, Symbol meth, (untyped | nil) core_rbs_provider, (Hash[untyped, untyped] | nil) local_var_types, (Hash[String, String] | nil) param_types) -> (String | nil)
+      def self?.try_synthetic: (Parser::AST::Node node, Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.infer_from_compound_assign: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.try_rbs: (Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.try_compound: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.rbs_fallback: (Symbol meth, (Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.enumerator_elem_from_recv: ((Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.enumerator_recv_type: ((Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.extract_array_elem_strict: (String type_str) -> (String | nil)
+
+      def self?.enumerator_object_elem: (String recv_type) -> (String | nil)
+
+      def self?.hash_elem_from_enumerator: ((Parser::AST::Node | nil) inner_recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.hash_inner_type: ((Parser::AST::Node | nil) inner_recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.extract_array_elem: (String type_str) -> (String | nil)
+
+      def self?.extract_enumerator_elem: (String type_str) -> (String | nil)
+
+      def self?.resolve_rbs_for_send: ((Parser::AST::Node | nil) recv, Symbol meth, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.resolve_rbs_for_send_with_signature_provider: ((Parser::AST::Node | nil) recv, Symbol meth, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?, ?fallback_type: String?, ?nil_as_optional: bool) -> (String | nil)
+
+      def self?.receiver_rbs_type_name: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.receiver_or_and_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.receiver_literal_type: ((Parser::AST::Node | nil) recv) -> (String | nil)
+
+      def self?.var_receiver?: ((Parser::AST::Node | nil) recv) -> bool
+
+      def self?.receiver_var_type: ((Parser::AST::Node | nil) recv, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.stripped_union_type: ((String | nil) raw) -> (String | nil)
+
+      def self?.receiver_send_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.resolve_lvar_rbs: (Parser::AST::Node? recv, Symbol meth, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.lookup_lvar_type: ((String | Symbol | nil) lvar_name, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.resolve_chained_send_rbs: (Parser::AST::Node? recv, Symbol meth, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.infer_from_compound_assign: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
       def self?.type_from_literal_safe: ((Parser::AST::Node | nil) node) -> (String | nil)
 
-      def self?.last_expr_type: ((Parser::AST::Node | nil) node, **untyped opts) -> (String | nil)
+      def self?.last_expr_type: ((Parser::AST::Node | nil) node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.run_last_expr_type: ((Parser::AST::Node | nil) node, **untyped opts) -> (String | nil)
+      def self?.run_last_expr_type: ((Parser::AST::Node | nil) node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.handle_return_node: (Parser::AST::Node node, **untyped opts) -> (String | nil)
+      def self?.handle_return_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.container_rbs_return_type: (Symbol meth, **untyped opts) -> (String | nil)
+      def self?.handle_const_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.send_rbs_type: ((Parser::AST::Node | nil) recv, Symbol meth, **untyped opts) -> (String | nil)
+      def self?.handle_csend_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
-      def self?.resolve_rbs_return_type: (String container_type, (String | Symbol) method_name, (untyped | nil) core_rbs_provider) -> String
+      def self?.fallback_alias?: ((String | nil) type_str, String fallback_type) -> bool
+
+      def self?.rescue_branch_type: ((Parser::AST::Node | nil) rescue_body, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.resolve_const_value_type: (Parser::AST::Node node, (String | nil) container) -> (String | nil)
+
+      def self?.const_path_segments: (Parser::AST::Node node) -> ([Array[String], bool] | nil)
+
+      def self?.const_owner_paths: ((String | nil) container, Array[String] scope_parts, bool absolute) -> Array[String]
+
+      def self?.runtime_const_lookup: (String owner_path, String const_name) -> [bool, untyped]
+
+      def self?.safe_const_path: (Array[String] parts) -> (Module | nil)
+
+      def self?.safe_const_step: (Module mod, String name) -> (Module | nil)
+
+      def self?.yard_type_for_const_value: (untyped value) -> (String | nil)
+
+      def self?.container_rbs_return_type: (Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.send_rbs_type: ((Parser::AST::Node | nil) recv, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.resolve_rbs_return_type: (String container_type, (String | Symbol) method_name, Types::RBS::Provider? core_rbs_provider) -> String
 
       def self?.unify_types: ((String | nil) type_a, (String | nil) type_b, fallback_type: String, nil_as_optional: bool) -> String
 
+      def self?.coalesce_type: ((String | nil) type, String fallback_type) -> String
+
       def self?.unify_nil_types: (String type_a, String type_b, nil_as_optional: bool) -> String
+
+      def self?.assignment_inferred_type: (Parser::AST::Node value, Hash[String, String] types, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.assignment_op_asgn_type: (Parser::AST::Node node, Hash[String, String] types, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.op_asgn_left_type: ((Parser::AST::Node | nil) lhs, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.op_asgn_var_name: ((Parser::AST::Node | nil) lhs) -> (String | nil)
+
+      def self?.op_asgn_lookup_type: (Parser::AST::Node lhs, String name, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.op_asgn_right_type: ((Parser::AST::Node | nil) rhs, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.op_asgn_expr_opts: (?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> Hash[Symbol, untyped]
+
+      def self?.op_asgn_rbs_type: ((Parser::AST::Node | nil) lhs, (String | nil) left, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.resolve_op_asgn_rbs: (String recv_type, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.op_asgn_fallback_type: ((String | nil) left, (String | nil) right, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.shovel_method?: ((String | nil) left, Symbol meth, Types::RBS::Provider? provider) -> bool
+
+      def self?.core_rbs_provider: () -> (Types::RBS::Provider | nil)
+
+      def self?.cleaned_recv_type: ((String | nil) raw) -> (String | nil)
+
+      def self?.synthesize_shovel_type: ((String | nil) left, (String | nil) right, fallback: String) -> String
+
+      def self?.shovel_array_type: (String left_str, String right_str, String base, String fallback) -> String
+
+      def self?.shovel_left_generic?: (String str) -> bool
+
+      def self?.shovel_right_invalid?: (String str, String fallback) -> bool
+
+      def self?.compound_left_type: ((Parser::AST::Node | nil) recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.compound_var_lookup: (Parser::AST::Node recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.compound_right_type: ((Parser::AST::Node | nil) arg, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.compound_expr_opts: (?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> Hash[Symbol, untyped]
+
+      def self?.compound_rbs_type: ((Parser::AST::Node | nil) recv, (String | nil) left, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.resolve_compound_rbs: (String recv_type, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.compound_fallback_type: ((String | nil) left, (String | nil) right, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.split_top_level_commas: (String str) -> Array[String]
+
+      def self?.substitute_rbs_type: (String rbs, String recv_type) -> String
+
+      def self?.substitute_self_type: (String rbs, String recv_type) -> (String | nil)
+
+      def self?.substitute_with_mapping: (String rbs, String recv_type, Array[String] args) -> String
+
+      def self?.build_generic_mapping: (String recv_type, Array[String] args) -> Hash[String, String]
+
+      def self?.fill_mapping_for_base: (Hash[String, String] mapping, String base, Array[String] args) -> void
+
+      def self?.fill_hash_mapping: (Hash[String, String] mapping, Array[String] args) -> void
+
+      def self?.fill_array_mapping: (Hash[String, String] mapping, Array[String] args) -> void
+
+      def self?.fill_other_mapping: (Hash[String, String] mapping, Array[String] args) -> void
+
+      def self?.apply_generic_mapping: (String rbs, Hash[String, String] mapping, String recv_type) -> String
+
+      def self?.extract_generic_inner: (String `type`) -> (String | nil)
+
+      def self?.split_generic_args: (String inner) -> Array[String]
+
+      def self?.split_process_char: (String chr, Hash[Symbol, untyped] state, strip: bool) -> void
+
+      def self?.split_handle_bracket: (String chr, Hash[Symbol, untyped] state) -> void
+
+      def self?.split_handle_comma: (Hash[Symbol, untyped] state, strip: bool) -> void
+
+      def self?.fallback_generic_substitution: (String rbs_type, String inner) -> String
+
+      def self?.bare_container_type: ((String | nil) rbs_type, String inner) -> (String | nil)
+
+      def self?.placeholder_token?: (String token) -> bool
+
+      def self?.string_send_type: (Symbol meth, (Parser::AST::Node | nil) recv) -> (String | nil)
+
+      def self?.string_like_method?: (Symbol meth) -> bool
+
+      def self?.file_join_method?: (Symbol meth, (Parser::AST::Node | nil) recv) -> bool
+
+      def self?.sub_string_method?: (Symbol meth, (Parser::AST::Node | nil) recv) -> bool
+
+      def self?.fallback_concrete_type: ((String | nil) left, (String | nil) right, String fallback) -> String
+
+      def self?.fallback_preferred_side: ((String | nil) left, (String | nil) right, bool left_is_fallback, bool right_is_fallback) -> (String | nil)
+
+      def self?.fallback_type?: ((String | nil) type, String fallback) -> bool
+
+      def self?.resolve_self_via_rbs?: (String base, Symbol meth, Types::RBS::Provider? provider) -> bool
+
+      def self?.receiver_dispatch_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.block_receiver_type: (Parser::AST::Node recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.receiver_begin_type: ((Parser::AST::Node | nil) recv, Types::RBS::Provider? core_rbs_provider, Hash[String, String]? local_var_types, Hash[String, String]? param_types) -> (String | nil)
+
+      def self?.resolve_cleaned_type: ((String | nil) `type`) -> (String | nil)
+
+      def self?.receiver_or_and_preference: ((String | nil) left_clean, (String | nil) right_clean, (String | nil) left, (String | nil) right) -> (String | nil)
+
+      def self?.single_clean_preference: ((String | nil) left_clean, (String | nil) right_clean) -> (String | nil)
+
+      def self?.both_clean_equal?: ((String | nil) left_clean, (String | nil) right_clean) -> bool
+
+      def self?.handle_then_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.handle_map_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.block_generic_substitution: (String rbs_type, (String | nil) inner) -> (String | nil)
+
+      def self?.placeholder_tokens: (String inner_generic) -> Array[String]
+
+      def self?.substitute_placeholders: (String rbs_type, Array[String] placeholders, String inner) -> String
     end
   end
 end

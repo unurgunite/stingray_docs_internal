@@ -185,7 +185,7 @@ RSpec.describe Docscribe::Infer do
     end
 
     it 'unifies case branch (Symbol), elsif (Integer?), missing outer else (nil)' do
-      expect(out).to match(header_regex('A', 'foo', 'Symbol, Integer?'))
+      expect(out).to match(header_regex('A', 'foo', 'Symbol?, Integer?'))
     end
   end
 
@@ -212,7 +212,7 @@ RSpec.describe Docscribe::Infer do
     end
 
     it 'unifies nested if/elsif/else with other when branch' do
-      expect(out).to match(header_regex('A', 'foo', 'Symbol, String'))
+      expect(out).to match(header_regex('A', 'foo', 'Symbol, String?'))
     end
   end
 end

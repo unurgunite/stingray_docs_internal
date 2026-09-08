@@ -29,6 +29,7 @@ module Docscribe
         apply_rbs_overrides(raw, options) if rbs_overrides?(options)
         apply_sorbet_overrides(raw, options) if sorbet_overrides?(options)
         apply_output_overrides(raw, options)
+        apply_validation_overrides(raw, options) if validation_overrides?(options)
         conf = Docscribe::Config.new(config_path: base.config_path, **raw)
         warn_missing_rbs_collection(conf, options)
         conf
@@ -43,7 +44,8 @@ module Docscribe
         filter_overrides?(options) ||
           rbs_overrides?(options) ||
           sorbet_overrides?(options) ||
-          output_overrides?(options)
+          output_overrides?(options) ||
+          validation_overrides?(options)
       end
 
       # Whether any method or file filter CLI options were provided.
@@ -195,6 +197,25 @@ module Docscribe
         raw['emit']['include_param_documentation'] = false if options[:no_boilerplate]
       end
 
+      # Whether any validation-related CLI options were provided.
+      #
+      # @note module_function: defines #validation_overrides? (visibility: private)
+      # @param [Hash<Symbol, Object>] options parsed CLI options
+      # @return [Boolean]
+      def validation_overrides?(options)
+        !!options[:validate_types]
+      end
+
+      # Apply validation-related CLI overrides to the raw config.
+      #
+      # @note module_function: defines #apply_validation_overrides (visibility: private)
+      # @param [Hash<String, Object>] raw raw config hash
+      # @param [Hash<Symbol, Object>] options parsed CLI options
+      # @return [void]
+      def apply_validation_overrides(raw, options)
+        raw['validate_types'] = true if options[:validate_types]
+      end
+
       # Warn when rbs_collection.lock.yaml exists but --rbs-collection was not passed.
       #
       # The warning can be suppressed by setting `rbs.warn_missing_collection: false`
@@ -206,6 +227,7 @@ module Docscribe
       # @return [void]
       def warn_missing_rbs_collection(conf, options)
         return if options[:rbs_collection]
+        return if conf.raw.dig('rbs', 'collection')
         return unless conf.rbs_warn_missing_collection?
         return unless File.exist?('rbs_collection.lock.yaml')
 
