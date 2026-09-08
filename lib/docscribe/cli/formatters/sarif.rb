@@ -161,12 +161,15 @@ module Docscribe
         # @param [String?] level
         # @return [Hash<Symbol, Object>]
         def build_result(change, path, level: nil)
-          {
+          result = {
             ruleId: cop_name_for(change),
             level: level || SEVERITY_MAP[change[:type]] || 'note',
             message: { text: message_for(change) },
             locations: [location(path, change[:line] || 1)]
           }
+          source = change[:source] || change['source'] # steep:ignore
+          result[:properties] = { source: source } if source
+          result
         end
 
         # @private

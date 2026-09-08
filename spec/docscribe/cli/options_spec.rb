@@ -133,4 +133,40 @@ RSpec.describe Docscribe::CLI::Options do
     opts = described_class.parse!(%w[--verbose lib])
     expect(opts).to include(progress: true, verbose: true)
   end
+
+  describe '.define_validate_types_option' do
+    let(:options) { Marshal.load(Marshal.dump(described_class::DEFAULT)) }
+    let(:parser) { described_class.build_option_parser(options, { mode: nil }) }
+
+    it 'sets validate_types true for --validate-types' do
+      parser.parse!(%w[--validate-types])
+      expect(options[:validate_types]).to be(true)
+    end
+
+    it 'sets validate_types false for --no-validate-types' do
+      parser.parse!(%w[--no-validate-types])
+      expect(options[:validate_types]).to be(false)
+    end
+  end
+
+  it 'sets validate_types true for --validate-types via parse!' do
+    opts = described_class.parse!(%w[--validate-types lib])
+    expect(opts[:validate_types]).to be(true)
+  end
+
+  it 'sets validate_types false for --no-validate-types via parse!', :aggregate_failures do
+    opts = described_class.parse!(%w[--no-validate-types lib])
+    expect(opts[:validate_types]).to be(false)
+    expect(opts[:rbs]).to be(false)
+  end
+
+  it 'defaults validate_types to false' do
+    opts = described_class.parse!(%w[lib])
+    expect(opts[:validate_types]).to be(false)
+  end
+
+  it 'last flag wins for repeated validate-types', :aggregate_failures do
+    opts = described_class.parse!(%w[--validate-types --no-validate-types lib])
+    expect(opts[:validate_types]).to be(false)
+  end
 end

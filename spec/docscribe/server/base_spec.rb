@@ -170,7 +170,7 @@ RSpec.describe Docscribe::Server do
     end
   end
 
-  # rubocop:disable RSpec/ExampleLength, RSpec/MultipleExpectations, RSpec/IdenticalEqualityAssertion
+  # rubocop:disable RSpec/IdenticalEqualityAssertion
   describe '.env_hash' do
     around { |ex| Dir.mktmpdir { |t| Dir.chdir(t, &ex) } }
 
@@ -178,88 +178,151 @@ RSpec.describe Docscribe::Server do
       expect(described_class.send(:env_hash)).to eq(described_class.send(:env_hash))
     end
 
-    it 'changes when sig file content changes' do
-      FileUtils.mkdir_p('sig')
-      File.write('sig/a.rbs', 'class A; def foo: () -> Integer; end')
-      h1 = described_class.send(:env_hash)
-      sleep 0.02
-      File.write('sig/a.rbs', 'class A; def foo: () -> String; end')
-      h2 = described_class.send(:env_hash)
-      expect(h1).not_to eq(h2)
+    context 'when sig file content changes' do
+      before do
+        FileUtils.mkdir_p('sig')
+        File.write('sig/a.rbs', 'class A; def foo: () -> Integer; end')
+      end
+
+      let(:initial_hash) { described_class.send(:env_hash) }
+      let(:updated_hash) do
+        sleep 0.02
+        File.write('sig/a.rbs', 'class A; def foo: () -> String; end')
+        described_class.send(:env_hash)
+      end
+
+      it 'changes hash' do
+        expect(initial_hash).not_to eq(updated_hash)
+      end
     end
 
-    it 'changes when new sig file is added' do
-      FileUtils.mkdir_p('sig')
-      h1 = described_class.send(:env_hash)
-      File.write('sig/b.rbs', 'class B; end')
-      h2 = described_class.send(:env_hash)
-      expect(h1).not_to eq(h2)
+    context 'when new sig file is added' do
+      before { FileUtils.mkdir_p('sig') }
+
+      let(:initial_hash) { described_class.send(:env_hash) }
+      let(:updated_hash) do
+        File.write('sig/b.rbs', 'class B; end')
+        described_class.send(:env_hash)
+      end
+
+      it 'changes hash' do
+        expect(initial_hash).not_to eq(updated_hash)
+      end
     end
 
-    it 'changes when sig file is removed' do
-      FileUtils.mkdir_p('sig')
-      File.write('sig/c.rbs', 'class C; end')
-      h1 = described_class.send(:env_hash)
-      FileUtils.rm('sig/c.rbs')
-      h2 = described_class.send(:env_hash)
-      expect(h1).not_to eq(h2)
+    context 'when sig file is removed' do
+      before do
+        FileUtils.mkdir_p('sig')
+        File.write('sig/c.rbs', 'class C; end')
+      end
+
+      let(:initial_hash) { described_class.send(:env_hash) }
+      let(:after_removal_hash) do
+        FileUtils.rm('sig/c.rbs')
+        described_class.send(:env_hash)
+      end
+
+      it 'changes hash' do
+        expect(initial_hash).not_to eq(after_removal_hash)
+      end
     end
 
-    it 'includes docscribe.yml' do
-      h1 = described_class.send(:env_hash)
-      File.write('docscribe.yml', 'rbs: {enabled: true}')
-      h2 = described_class.send(:env_hash)
-      expect(h1).not_to eq(h2)
-      FileUtils.rm('docscribe.yml')
-      expect(described_class.send(:env_hash)).to eq(h1)
+    context 'with docscribe.yml' do
+      let(:initial_hash) { described_class.send(:env_hash) }
+      let(:with_file_hash) do
+        File.write('docscribe.yml', 'rbs: {enabled: true}')
+        described_class.send(:env_hash)
+      end
+
+      after { FileUtils.rm_f('docscribe.yml') }
+
+      it 'changes when docscribe.yml added' do
+        expect(initial_hash).not_to eq(with_file_hash)
+      end
+
+      it 'restores after removal' do
+        File.write('docscribe.yml', 'rbs: {enabled: true}')
+        with_file_hash
+        FileUtils.rm('docscribe.yml')
+        expect(described_class.send(:env_hash)).to eq(initial_hash)
+      end
     end
   end
 
   describe '.sig_hash' do
     around { |ex| Dir.mktmpdir { |t| Dir.chdir(t, &ex) } }
 
-    it 'changes when sig file mtime changes' do
-      FileUtils.mkdir_p('sig')
-      File.write('sig/x.rbs', 'class X; end')
-      h1 = described_class.sig_hash
-      sleep 0.02
-      File.write('sig/x.rbs', 'class X; def bar: () -> String; end')
-      h2 = described_class.sig_hash
-      expect(h1).not_to eq(h2)
+    context 'when sig file mtime changes' do
+      before do
+        FileUtils.mkdir_p('sig')
+        File.write('sig/x.rbs', 'class X; end')
+      end
+
+      let(:initial_hash) { described_class.sig_hash }
+      let(:updated_hash) do
+        sleep 0.02
+        File.write('sig/x.rbs', 'class X; def bar: () -> String; end')
+        described_class.sig_hash
+      end
+
+      it 'changes hash' do
+        expect(initial_hash).not_to eq(updated_hash)
+      end
     end
 
     it 'is stable without changes' do
       expect(described_class.sig_hash).to eq(described_class.sig_hash)
     end
 
-    it 'changes when sig file count changes' do
-      FileUtils.mkdir_p('sig')
-      h1 = described_class.sig_hash
-      File.write('sig/y.rbs', 'class Y; end')
-      h2 = described_class.sig_hash
-      expect(h1).not_to eq(h2)
+    context 'when sig file count changes' do
+      before { FileUtils.mkdir_p('sig') }
+
+      let(:initial_hash) { described_class.sig_hash }
+      let(:updated_hash) do
+        File.write('sig/y.rbs', 'class Y; end')
+        described_class.sig_hash
+      end
+
+      it 'changes hash' do
+        expect(initial_hash).not_to eq(updated_hash)
+      end
     end
   end
 
   describe '.socket_path with sig and docscribe.yml' do
     around { |ex| Dir.mktmpdir { |t| Dir.chdir(t, &ex) } }
 
-    it 'changes when sig file changes' do
-      FileUtils.mkdir_p('sig')
-      File.write('sig/a.rbs', 'class A; end')
-      s1 = described_class.socket_path
-      sleep 0.02
-      File.write('sig/a.rbs', 'class A; def foo: () -> Integer; end')
-      s2 = described_class.socket_path
-      expect(s1).not_to eq(s2)
+    context 'when sig file changes' do
+      before do
+        FileUtils.mkdir_p('sig')
+        File.write('sig/a.rbs', 'class A; end')
+      end
+
+      let(:initial_path) { described_class.socket_path }
+      let(:updated_path) do
+        sleep 0.02
+        File.write('sig/a.rbs', 'class A; def foo: () -> Integer; end')
+        described_class.socket_path
+      end
+
+      it 'changes path' do
+        expect(initial_path).not_to eq(updated_path)
+      end
     end
 
-    it 'changes when docscribe.yml changes' do
-      s1 = described_class.socket_path
-      File.write('docscribe.yml', 'rbs: {enabled: false}')
-      s2 = described_class.socket_path
-      expect(s1).not_to eq(s2)
+    context 'when docscribe.yml changes' do
+      let(:initial_path) { described_class.socket_path }
+      let(:updated_path) do
+        File.write('docscribe.yml', 'rbs: {enabled: false}')
+        described_class.socket_path
+      end
+
+      after { FileUtils.rm_f('docscribe.yml') }
+
+      it 'changes path' do
+        expect(initial_path).not_to eq(updated_path)
+      end
     end
   end
-  # rubocop:enable RSpec/ExampleLength, RSpec/MultipleExpectations, RSpec/IdenticalEqualityAssertion
+  # rubocop:enable RSpec/IdenticalEqualityAssertion
 end

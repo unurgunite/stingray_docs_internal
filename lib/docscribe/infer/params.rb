@@ -33,8 +33,8 @@ module Docscribe
       # @return [String, nil]
       def prefix_param_type(name)
         return 'Array' if name.start_with?('*') && !name.start_with?('**')
-        return 'Hash'  if name.start_with?('**')
-        return 'Proc'  if name.start_with?('&')
+        return 'Hash' if name.start_with?('**')
+        return 'Proc' if name.start_with?('&')
 
         nil
       end

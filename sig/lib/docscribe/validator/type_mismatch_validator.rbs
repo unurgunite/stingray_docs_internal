@@ -8,37 +8,52 @@ module Docscribe
         attr_accessor yard_type: String?
         attr_accessor expected_type: String?
         attr_accessor message: String
+        attr_accessor source: String?
 
-        def initialize: (?type: Symbol, ?yard_type: String?, ?expected_type: String?, ?message: String) -> void
+        def initialize: (?type: Symbol, ?yard_type: String?, ?expected_type: String?, ?message: String, ?source: String?) -> void
       end
 
       def initialize: (?fallback_type: String) -> void
 
-      def mismatched_param?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def mismatched_param?: ((String | nil) yard_type, (String | nil) expected_type, ?method_name: (String | Symbol | nil)) -> bool
 
-      def mismatched_return?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def mismatched_return?: ((String | nil) yard_type, (String | nil) expected_type, ?method_name: (String | Symbol | nil)) -> bool
 
       def invalid_syntax?: ((String | nil) yard_type) -> bool
 
-      def check_return: ((String | nil) yard_type, (String | nil) expected_type) -> (Result | nil)
+      def check_return: ((String | nil) yard_type, (String | nil) expected_type, ?source: String, ?method_name: (String | Symbol | nil)) -> (Result | nil)
 
-      def check_param: (String param_name, (String | nil) yard_type, (String | nil) expected_type) -> (Result | nil)
+      def check_param: (String param_name, (String | nil) yard_type, (String | nil) expected_type, ?source: String, ?method_name: (String | Symbol | nil)) -> (Result | nil)
 
       def invalid_return_result: ((String | nil) yard_type, (String | nil) expected_type) -> Result
 
-      def mismatch_return_result: ((String | nil) yard_type, (String | nil) expected_type) -> Result
+      def mismatch_return_result: ((String | nil) yard_type, (String | nil) expected_type, ?source: String) -> Result
 
       def invalid_param_result: (String param_name, (String | nil) yard_type, (String | nil) expected_type) -> Result
 
-      def mismatch_param_result: (String param_name, (String | nil) yard_type, (String | nil) expected_type) -> Result
+      def mismatch_param_result: (String param_name, (String | nil) yard_type, (String | nil) expected_type, ?source: String) -> Result
 
       private
 
-      def void_compatible?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+      def blank_type?: ((String | nil) type_str) -> bool
+
+      def expected_suppressed?: ((String | nil) expected_type) -> bool
+
+      def yard_compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?method_name: (String | Symbol | nil)) -> bool
+
+      def types_normalized_equal?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def normalized_equal?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def optional_normalized_equal?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def void_compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?method_name: (String | Symbol | nil)) -> bool
 
       def fallback_union?: ((String | nil) type_str) -> bool
 
       def yard_in_expected_union?: ((String | nil) yard_type, (String | nil) expected_type) -> bool
+
+      def generic_compatible?: ((String | nil) yard_type, (String | nil) expected_type, ?method_name: (String | Symbol | nil)) -> bool
 
       def normalize: ((String | nil) type_str) -> String
     end

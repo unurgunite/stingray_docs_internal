@@ -72,10 +72,12 @@ methods:
 
 rbs:
   # Use RBS signatures for better types (requires `gem "rbs"`)
-  enabled: false
+  enabled: true
   sig_dirs: ["sig"]
   collapse_generics: false            # Hash<Symbol, String> => Hash
-  collection: false                   # auto-discover from rbs_collection.lock.yaml
+  collection: true                   # auto-discover from rbs_collection.lock.yaml
+
+validate_types: true
 
 sorbet:
   # Use Sorbet inline sigs and RBI files for better types

@@ -172,7 +172,7 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
+        # @param [Parser::AST::Node] node
         # @param [Docscribe::CLI::Coverage::CoverageStats] stats
         # @param [String] src
         # @return [void]
@@ -185,7 +185,7 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
+        # @param [Parser::AST::Node] node
         # @param [Docscribe::CLI::Coverage::CoverageStats] stats
         # @param [String] src
         # @return [void]
@@ -202,7 +202,7 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
+        # @param [Parser::AST::Node] node
         # @param [Docscribe::CLI::Coverage::CoverageStats] stats
         # @param [String] doc_comment
         # @return [void]
@@ -218,7 +218,7 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
+        # @param [Parser::AST::Node] node
         # @param [Docscribe::CLI::Coverage::CoverageStats] stats
         # @return [void]
         def count_method_params(node, stats)
@@ -226,7 +226,7 @@ module Docscribe
         end
 
         # @private
-        # @param [Object] node
+        # @param [Parser::AST::Node] node
         # @return [Integer]
         def count_params(node)
           args_node = node.children[2] || node.children[1]

@@ -1,0 +1,157 @@
+flowchart TB
+    subgraph CLI["CLI Layer"]
+        Exe["exe/docscribe\nEntry point"]
+        Run["CLI::Run\nMain execution\n· expand paths\n· iterate files\n· report results"]
+        Options["CLI::Options\nARGV parsing\n(mode, strategy,\nfilters, flags)"]
+        CLIDispatch["CLI.dispatch_subcommand"]
+        InitCmd["CLI::Init\ndocscribe init\nGenerate config"]
+        GenCmd["CLI::Generate\ndocscribe generate\nScaffold plugins"]
+        SigsCmd["CLI::Sigs\ndocscribe sigs\nCheck RBS coverage"]
+        RbsGenCmd["CLI::RbsGen\ndocscribe rbs\nGenerate RBS from YARD"]
+        UpdateTypesCmd["CLI::UpdateTypes\ntwo-pass rebuild"]
+        ServerCmd["CLI::ServerCmd\ndocscribe server"]
+        SarifFormatter["CLI::Formatters::Sarif\nSARIF 2.1 JSON\nCode Scanning"]
+        ConfigBuilder["CLI::ConfigBuilder\nApply CLI overrides\nto config"]
+    end
+
+    subgraph Config["Configuration"]
+        ConfigClass["Config\nCentral config object\n· raw hash\n· query methods"]
+        Defaults["config/defaults.rb\nDEFAULT hash"]
+        Loader["config/loader.rb\nYAML loading\n+ deep merge"]
+        Emit["config/emit.rb\nEmission toggles\n(header, tags, etc.)"]
+        Filtering["config/filtering.rb\nFile/method\ninclude/exclude"]
+        RBSConfig["config/rbs.rb\nRBS provider\nfactory"]
+        SorbetConfig["config/sorbet.rb\nSorbet provider\nchain factory"]
+        PluginConfig["config/plugin.rb\nPlugin loading\nfrom YAML"]
+        ValidateCfg["config/validation.rb\nvalidate_types?"]
+        SortingCfg["config/sorting.rb\nsort_tags / tag_order"]
+        TemplateCfg["config/template.rb\ndefault YAML"]
+    end
+
+    subgraph Parsing["Parsing"]
+        ParsingModule["Parsing\nBackend selection\n(:parser / :prism)"]
+        ParserGem["Parser gem\n(whitequark/parser)"]
+        Prism["Prism translator\n(Ruby 3.4+)"]
+    end
+
+    subgraph Core["Core Engine"]
+        InlineRewriter["InlineRewriter\n· parse -> collect\n· deduplicate -> dispatch\n· rewrite"]
+        Collector["Collector\n< Parser::AST::Processor\nAST walker\n· find methods/attrs\n· track visibility\n· track containers"]
+        DocBuilder["DocBuilder\nGenerate YARD doc lines\n· combine inference\n· external signatures\n· plugin tags"]
+        ValidSvc["Validator\nGenericCompatibility +\nTypeMismatchValidator"]
+        DocBlock["DocBlock\nSafe strategy:\nparse -> merge -> sort\nexisting doc blocks"]
+        SourceHelpers["SourceHelpers\nPosition/range\nutilities"]
+    end
+
+    subgraph Infer["Inference Engine"]
+        InferModule["Infer\nEntry point"]
+        InferBehavior["Infer::Behavior"]
+        InferConsts["Infer::Constants"]
+        Params["Infer::Params\nParameter type\nfrom name + default"]
+        Returns["Infer::Returns\nReturn type\nfrom method body"]
+        Raises["Infer::Raises\n@raise tags\nfrom raise/rescue"]
+        Literals["Infer::Literals\nAST literal ->\ntype string"]
+        Names["Infer::Names\n:const node ->\nFQN string"]
+        ASTWalk["Infer::ASTWalk\nRecursive DFS\nAST traversal"]
+    end
+
+    subgraph Plugins["Plugin System"]
+        PluginModule["Plugin\nTag/Collector\ndispatch"]
+        Registry["Plugin::Registry\nGlobal registry\n· register -> route\n· tag_entries\n· collector_entries"]
+        TagPlugin["Base::TagPlugin\nOverride #call(context)\n-> Array<Tag>"]
+        CollectorPlugin["Base::CollectorPlugin\nOverride #collect(ast, buffer)\n-> Array<Hash>"]
+        TagValue["Plugin::Tag\nStruct (name, text, types)"]
+        Context["Plugin::Context\nMethod snapshot struct\nnode/container/scope/\nvisibility/method/params/return/source"]
+    end
+
+    subgraph Types["External Type System"]
+        ProviderChain["ProviderChain\nComposite:\nquery in order\nfirst match wins"]
+        RBSProvider["RBS::Provider\n.rbs files\n-> RBS lib"]
+        RBSFormatter["RBS::TypeFormatter\nRBS type ->\nYARD type string"]
+        RBSCollection["RBS::CollectionLoader\nrbs_collection\n.lock.yaml"]
+        SorbetBase["Sorbet::BaseProvider\nRBS::Prototype::RBI\nbridge"]
+        SorbetSource["Sorbet::SourceProvider\nInline sig{}\ndeclarations"]
+        SorbetRBI["Sorbet::RBIProvider\n.rbi files\ndirectories"]
+        OverloadSel["OverloadSelector"]
+    end
+
+    subgraph YardTypes["YARD Type Parser"]
+        YParser["Yard::Parser\nParse YARD type\nstrings -> AST"]
+        YFormatter["Yard::Formatter\nYARD AST ->\nRBS string"]
+        YTypes["Yard::Types\n9 AST node types\n(Named, Generic, etc.)"]
+    end
+
+    subgraph Server["Server / Daemon"]
+        ThinClient["exe/docscribe-client\nThin client\n· socket send/receive\n· no gem load\nexcept --ensure"]
+        ServerDaemon["Server::Daemon\nSocket listener\n· check / fix / check_batch\n· update_types / ping / shutdown\n· JSON-RPC 2.0"]
+        Cache["Docscribe::LRUCache\nFile result cache\n(max 1000, key [file, strategy])\nhit = mtime== AND sig_hash=="]
+    end
+
+    Exe --> Run
+    Exe --> CLIDispatch
+    Exe --> ServerCmd
+    ServerCmd --> ServerDaemon
+    CLIDispatch --> Run
+    CLIDispatch --> InitCmd
+    CLIDispatch --> GenCmd
+    CLIDispatch --> SigsCmd
+    CLIDispatch --> RbsGenCmd
+    ThinClient --> ServerDaemon
+    ServerDaemon --> ConfigClass
+    ServerDaemon --> Cache
+    ServerDaemon --> InlineRewriter
+    Options --> Run
+    Run --> SarifFormatter
+    Run --> ConfigBuilder
+    Run --> UpdateTypesCmd
+    ConfigBuilder --> ConfigClass
+    ConfigClass --> Defaults
+    ConfigClass --> Loader
+    ConfigClass --> Emit
+    ConfigClass --> Filtering
+    ConfigClass --> RBSConfig
+    ConfigClass --> SorbetConfig
+    ConfigClass --> PluginConfig
+    ConfigClass --> ValidateCfg
+    ConfigClass --> SortingCfg
+    ConfigClass --> TemplateCfg
+    Run --> InlineRewriter
+    InlineRewriter --> ParsingModule
+    ParsingModule --> ParserGem
+    ParsingModule --> Prism
+    InlineRewriter --> Collector
+    Collector --> PluginModule
+    PluginModule --> Registry
+    Registry --> CollectorPlugin
+    InlineRewriter --> DocBuilder
+    DocBuilder --> InferModule
+    DocBuilder --> ValidSvc
+    InferModule --> InferBehavior
+    InferModule --> InferConsts
+    InferModule --> Params
+    InferModule --> Returns
+    InferModule --> Raises
+    Params --> Literals
+    Returns --> Literals
+    Raises --> ASTWalk
+    Raises --> Names
+    DocBuilder --> ProviderChain
+    ProviderChain --> OverloadSel
+    ProviderChain --> SorbetSource
+    ProviderChain --> SorbetRBI
+    ProviderChain --> RBSProvider
+    SorbetSource --> SorbetBase
+    SorbetRBI --> SorbetBase
+    RBSProvider --> RBSFormatter
+    RBSProvider --> RBSCollection
+    DocBuilder --> PluginModule
+    PluginModule --> Registry
+    Registry --> TagPlugin
+    TagPlugin --> TagValue
+    TagPlugin --> Context
+    InlineRewriter --> DocBlock
+    InlineRewriter --> SourceHelpers
+    RbsGenCmd --> ParsingModule
+    RbsGenCmd --> YParser
+    YParser --> YTypes
+    YParser --> YFormatter

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'tmpdir'
+require 'fileutils'
 require 'docscribe/inline_rewriter'
 require 'docscribe/config'
 
@@ -146,6 +148,77 @@ RSpec.describe Docscribe::InlineRewriter do
     it 'provides corrected line for safe fix', :aggregate_failures do
       expect(result[:output]).to include('@param [Symbol] x')
       expect(result[:output]).not_to include('Sym bol')
+    end
+  end
+
+  describe 'source field' do
+    context 'with syntax source for invalid YARD' do
+      let(:code) do
+        <<~RUBY
+          class Foo
+            # @return [Sym bol]
+            def bar
+              :x
+            end
+          end
+        RUBY
+      end
+      let(:config) { Docscribe::Config.new('validate_types' => true) }
+
+      it 'reports syntax source' do
+        expect(result[:changes].first[:source]).to eq('syntax')
+      end
+    end
+
+    context 'with infer source for mismatch without RBS' do
+      let(:code) do
+        <<~RUBY
+          class Foo
+            # @return [Integer]
+            def bar
+              "hello"
+            end
+          end
+        RUBY
+      end
+      let(:config) { Docscribe::Config.new('validate_types' => true) }
+
+      it 'reports infer source' do
+        expect(result[:changes].first[:source]).to eq('infer')
+      end
+    end
+
+    context 'with rbs source when RBS type differs' do
+      let(:code) do
+        <<~RUBY
+          class Foo
+            # @return [Integer]
+            def bar
+              "hello"
+            end
+          end
+        RUBY
+      end
+      let(:tmp_dir) { Dir.mktmpdir }
+      let(:sig_dir) do
+        dir = File.join(tmp_dir, 'sig')
+        FileUtils.mkdir_p(dir)
+        File.write(File.join(dir, 'foo.rbs'), "class Foo\n  def bar: () -> String\nend\n")
+        dir
+      end
+      let(:rbs_config) do
+        Docscribe::Config.new('validate_types' => true, 'rbs' => { 'enabled' => true, 'sig_dirs' => [sig_dir] })
+      end
+      let(:rbs_result) do
+        described_class.rewrite_with_report(code, strategy: :safe, config: rbs_config, file: 'test.rb')
+      end
+
+      after { FileUtils.remove_entry(tmp_dir) }
+
+      it 'reports rbs source' do
+        skip_unless_rbs_available!
+        expect(rbs_result[:changes].first[:source]).to eq('rbs')
+      end
     end
   end
 end

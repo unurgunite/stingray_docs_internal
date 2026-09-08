@@ -7,43 +7,56 @@ module Docscribe
 
         COP_NAME_MAP: Hash[Symbol, String]
 
+        type json_location = { start_line: Integer, start_column: Integer, last_line: Integer, last_column: Integer }
+        type json_offense = { severity: String, cop_name: String, message: String, corrected: bool, correctable: bool, location: json_location, ?source: String }
+        type json_file = { path: String, offenses: Array[json_offense] }
+        type json_metadata = { docscribe_version: String, ruby_version: String }
+        type json_summary = { offense_count: Integer, target_file_count: Integer, inspected_file_count: Integer, error_count: Integer }
+        type json_document = { metadata: json_metadata, files: Array[json_file], summary: json_summary }
+
         def format_check_summary: (state: state, options: opts) -> void
 
         def format_write_summary: (state: state, options: opts) -> void
 
         private
 
-        def build_document: (state state, opts _options) -> Hash[Symbol, untyped]
+        def build_document: (state state, opts _options) -> json_document
 
-        def document_hash: (Array[Hash[Symbol, untyped]] files, state state) -> Hash[Symbol, untyped]
+        def document_hash: (Array[json_file] files, state state) -> json_document
 
-        def metadata_hash: () -> Hash[Symbol, String]
+        def metadata_hash: () -> json_metadata
 
-        def summary_hash: (Array[Hash[Symbol, untyped]] files, state state) -> Hash[Symbol, Integer]
+        def summary_hash: (Array[json_file] files, state state) -> json_summary
 
-        def build_files: (state state) -> Array[Hash[Symbol, untyped]]
+        def build_files: (state state) -> Array[json_file]
 
-        def append_check_files: (state state, Array[Hash[Symbol, untyped]] files) -> void
+        def append_check_files: (state state, Array[json_file] files) -> void
 
-        def append_corrected_files: (state state, Array[Hash[Symbol, untyped]] files) -> void
+        def append_corrected_files: (state state, Array[json_file] files) -> void
 
-        def append_error_files: (state state, Array[Hash[Symbol, untyped]] files) -> void
+        def append_error_files: (state state, Array[json_file] files) -> void
 
-        def merge_or_append: (Array[Hash[Symbol, untyped]] files, String path, Array[Hash[Symbol, untyped]] offenses) -> void
+        def merge_or_append: (Array[json_file] files, String path, Array[json_offense] offenses) -> void
 
-        def file_entry: (String path, Array[change] changes, ?severity: String?) -> Hash[Symbol, untyped]
+        def file_entry: (String path, Array[change] changes, ?severity: String?) -> json_file
 
-        def error_offense: (state state, String path) -> Hash[Symbol, untyped]
+        def error_offense: (state state, String path) -> json_offense
 
-        def error_offense_hash: (String message) -> Hash[Symbol, untyped]
+        def error_offense_hash: (String message) -> json_offense
 
-        def default_location: () -> Hash[Symbol, Integer]
+        def default_location: () -> json_location
 
-        def build_offenses: (Array[change] changes, ?severity: String?) -> Array[Hash[Symbol, untyped]]
+        def build_offenses: (Array[change] changes, ?severity: String?) -> Array[json_offense]
 
-        def build_offense: (change change, String? severity) -> Hash[Symbol, untyped]
+        def build_offense: (change change, String? severity) -> json_offense
 
-        def location_for: (change change) -> Hash[Symbol, Integer]
+        def base_offense: (change change, String? severity) -> json_offense
+
+        def attach_source: (json_offense offense, change change) -> json_offense
+
+        def offense_source: (change change) -> (String | nil)
+
+        def location_for: (change change) -> json_location
 
         def cop_name_fallback: (change change) -> String
 

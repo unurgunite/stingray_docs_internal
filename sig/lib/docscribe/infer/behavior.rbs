@@ -3,15 +3,15 @@ module Docscribe
     module Behavior
       MUTATING_METHODS: Array[Symbol]
 
-      def self.analyze: (untyped body, untyped method_name) -> Hash[Symbol, untyped]
-      def self.infer_description: (Hash[Symbol, untyped] analysis, untyped method_name) -> String?
+      def self.analyze: ((Parser::AST::Node | nil) body, Symbol? method_name) -> Hash[Symbol, bool | String | nil]
+      def self.infer_description: (Hash[Symbol, bool | String | nil] analysis, Symbol? method_name) -> String?
 
       private
 
-      def self.analyze_body: (untyped node, Hash[Symbol, untyped] result) -> void
-      def self.analyze_send: (untyped node, Hash[Symbol, untyped] result) -> void
-      def self.default_result: (untyped method_name) -> Hash[Symbol, untyped]
-      def self.recurse_children: (untyped node, Hash[Symbol, untyped] result) -> void
+      def self.analyze_body: (Parser::AST::Node node, Hash[Symbol, bool | String | nil] result) -> void
+      def self.analyze_send: (Parser::AST::Node node, Hash[Symbol, bool | String | nil] result) -> void
+      def self.default_result: (Symbol? method_name) -> Hash[Symbol, bool | String | nil]
+      def self.recurse_children: (Parser::AST::Node node, Hash[Symbol, bool | String | nil] result) -> void
     end
   end
 end

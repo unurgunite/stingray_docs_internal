@@ -132,6 +132,7 @@ module Docscribe
         @tag_entries.clear
         @collector_entries.clear
         @order_seq = 0
+        nil
       end
     end
   end

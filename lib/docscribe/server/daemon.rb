@@ -20,22 +20,47 @@ module Docscribe
         internal: -32_099
       }.freeze
 
+      REQUEST_HANDLERS = {
+        'check' => :handle_check,
+        'fix' => :handle_fix,
+        'check_batch' => :handle_check_batch,
+        'update_types' => :handle_update_types
+      }.freeze
+
       # @param [String?] socket_path custom socket path
       # @param [Integer] idle_timeout seconds before automatic shutdown
       # @param [String?] config_path custom config path
       # @return [void]
-      def initialize(socket_path: nil, idle_timeout: IDLE_TIMEOUT, config_path: nil) # rubocop:disable Metrics/MethodLength
+      def initialize(socket_path: nil, idle_timeout: IDLE_TIMEOUT, config_path: nil)
+        setup_socket_config(socket_path, config_path, idle_timeout)
+        setup_runtime_state
+        setup_caches
+      end
+
+      # @param [String?] socket_path
+      # @param [String?] config_path
+      # @param [Integer] idle_timeout
+      # @return [void]
+      def setup_socket_config(socket_path, config_path, idle_timeout)
         @socket_path = socket_path || Server.socket_path(config_path)
-        @idle_timeout = idle_timeout
         @config_path = config_path
+        @idle_timeout = idle_timeout
+      end
+
+      # @return [void]
+      def setup_runtime_state
         @last_request_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         @running = false
         @server = nil
-        @file_cache = LRUCache.new
         @started_at = Time.now
+        @last_sig_hash = nil
+      end
+
+      # @return [void]
+      def setup_caches
+        @file_cache = LRUCache.new
         @cache_mutex = Mutex.new
         @config_mutex = Mutex.new
-        @last_sig_hash = nil
       end
 
       # Start the daemon: load dependencies, bind socket, enter listen loop.
@@ -143,15 +168,32 @@ module Docscribe
       # @param [UNIXSocket] client connected client socket
       # @param [Hash<String, Object>] request parsed JSON-RPC request
       # @return [void]
-      def handle_request(client, request) # rubocop:disable Metrics/AbcSize,Metrics/CyclomaticComplexity,Metrics/MethodLength
+      def handle_request(client, request)
         method = request['method']
         params = request['params'] || {}
+        dispatch_request(client, request, method, params)
+      end
 
+      # @private
+      # @param [UNIXSocket] client
+      # @param [Hash<String, Object>] request
+      # @param [String] method
+      # @param [Hash<String, Object>] params
+      # @return [void]
+      def dispatch_request(client, request, method, params)
+        handler = REQUEST_HANDLERS[method]
+        return send(handler, client, request['id'], params) if handler
+
+        dispatch_control_request(client, request, method)
+      end
+
+      # @private
+      # @param [UNIXSocket] client
+      # @param [Hash<String, Object>] request
+      # @param [String] method
+      # @return [void]
+      def dispatch_control_request(client, request, method)
         case method
-        when 'check' then handle_check(client, request['id'], params)
-        when 'fix' then handle_fix(client, request['id'], params)
-        when 'check_batch' then handle_check_batch(client, request['id'], params)
-        when 'update_types' then handle_update_types(client, request['id'], params)
         when 'shutdown' then handle_shutdown(client, request['id'])
         when 'ping' then handle_ping(client, request['id'])
         else send_error(client, request['id'], -32_601, "Unknown method: #{method}")
@@ -226,7 +268,7 @@ module Docscribe
       # @param [Integer, Float?] timeout
       # @raise [Timeout::Error]
       # @raise [StandardError]
-      # @return [Hash<String, String, Array<Hash<Symbol, Object>>>]
+      # @return [Hash<String, Object>]
       # @return [Hash] if Timeout::Error
       # @return [Hash] if StandardError
       def process_file_in_batch(file, strategy, timeout = nil)
@@ -246,10 +288,11 @@ module Docscribe
       # @private
       # @param [String] file
       # @param [Symbol] strategy
-      # @return [Hash<String, String, Array<Hash<Symbol, Object>>>]
+      # @return [Hash<String, Object>]
       def run_rewrite(file, strategy)
         src, result = rewrite_file(file, strategy)
-        { 'file' => file, 'status' => result[:output] == src ? 'ok' : 'fail', 'changes' => result[:changes] }
+        changes = result[:changes].map { |c| c.transform_keys(&:to_s) }
+        { 'file' => file, 'status' => result[:output] == src ? 'ok' : 'fail', 'changes' => changes }
       end
 
       # @private
@@ -414,11 +457,11 @@ module Docscribe
       # @return [void]
       # @return [void] if StandardError
       def handle_update_types(client, id, params)
-        dir = update_types_dir(params)
+        target = update_types_dir(params)
         apply_cli_overrides(params['cli_overrides'])
-        exit_code = run_update_types(dir)
+        exit_code = run_update_types(target)
         @file_cache.clear
-        send_update_types_response(client, id, dir, exit_code)
+        send_update_types_response(client, id, target, exit_code)
       rescue StandardError => e
         @file_cache.clear
         code, message, data = classify_error(e, 'update_types', params)
@@ -429,15 +472,15 @@ module Docscribe
       # @param [Hash<String, Object>] params
       # @return [String]
       def update_types_dir(params)
-        params['dir'] || params['directory'] || '.'
+        params['file'] || params['dir'] || params['directory'] || '.'
       end
 
       # @private
-      # @param [String] dir
+      # @param [String] target
       # @return [Integer]
-      def run_update_types(dir)
+      def run_update_types(target)
         require 'docscribe/cli/update_types'
-        Docscribe::CLI::UpdateTypes.run([dir])
+        Docscribe::CLI::UpdateTypes.run([target])
       end
 
       # @private
@@ -528,7 +571,7 @@ module Docscribe
       end
 
       # @private
-      # @param [Object] exception
+      # @param [Exception] exception
       # @return [(Integer, String, Hash<Symbol, String, nil>)]
       def classify_gem_error(exception)
         data = { gem: nil }
@@ -537,7 +580,7 @@ module Docscribe
       end
 
       # @private
-      # @param [Object] exception
+      # @param [Exception] exception
       # @param [Hash<String, Object>] params
       # @return [(Integer, String, Hash<Symbol, Object>)]
       def classify_syntax_err(exception, params)
@@ -573,7 +616,7 @@ module Docscribe
       # @private
       # @param [UNIXSocket] client
       # @param [String, Integer] id
-      # @param [Object] exception
+      # @param [Exception] exception
       # @param [String] file
       # @raise [StandardError]
       # @return [void]
@@ -589,7 +632,7 @@ module Docscribe
       # @private
       # @param [UNIXSocket] client
       # @param [String, Integer] id
-      # @param [Object] exception
+      # @param [Exception] exception
       # @param [String] file
       # @return [void]
       def send_syntax_error(client, id, exception, file)
@@ -607,7 +650,7 @@ module Docscribe
       # @param [String, Integer, nil] id
       # @param [Integer] code
       # @param [String] message
-      # @param [Object?] data optional structured error data
+      # @param [Hash<Symbol, Object>?] data optional structured error data
       # @return [void]
       def send_error(client, id, code, message, data = nil)
         error = { code: code, message: message }

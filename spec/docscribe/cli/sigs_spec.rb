@@ -19,10 +19,6 @@ RSpec.describe Docscribe::CLI::Sigs do
     end
 
     describe '.format_method' do
-      def build_mdef(scope, container)
-        described_class::MethodDef.new(name: :foo, scope: scope, container: container, file: 'a.rb', line: 1)
-      end
-
       it 'formats instance methods with container' do
         result = described_class.send(:format_method, build_mdef(:instance, 'Foo'))
         expect(result).to eq('Foo#foo')
@@ -75,13 +71,6 @@ RSpec.describe Docscribe::CLI::Sigs do
     end
 
     describe '.expand_paths' do
-      def with_expand_empty(tmp)
-        Dir.chdir(tmp) do
-          File.write('a.rb', '')
-          described_class.send(:expand_paths, [])
-        end
-      end
-
       it 'defaults to current dir' do
         Dir.mktmpdir { |tmp| expect(with_expand_empty(tmp)).to include(end_with('a.rb')) }
       end
@@ -91,18 +80,6 @@ RSpec.describe Docscribe::CLI::Sigs do
       let(:tmpdir) { Dir.mktmpdir }
 
       after { FileUtils.remove_entry(tmpdir) }
-
-      def extracted(code)
-        with_file(code) { |p| described_class.send(:extract_methods, [p]) }
-      end
-
-      def with_file(code)
-        Dir.mktmpdir do |dir|
-          path = "#{dir}/test.rb"
-          File.write(path, code)
-          yield path
-        end
-      end
 
       it 'extracts instance methods' do
         methods = extracted("class Foo\n  def bar; end\nend")

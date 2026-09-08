@@ -10,23 +10,52 @@ module Docscribe
         class << self
           # @param [Docscribe::Types::Yard::node?] node
           # @return [String]
-          def to_rbs(node) # rubocop:disable Metrics/CyclomaticComplexity, Metrics/MethodLength
+          def to_rbs(node)
             return 'untyped' if node.nil?
 
-            case node
-            when Named then format_named(node)
-            when Generic then format_generic(node)
-            when Union then format_union(node)
-            when Intersection then format_intersection(node)
-            when Optional then format_optional(node)
-            when Tuple then format_tuple(node)
-            when HashMap then format_hash_map(node)
-            when Literal then format_literal(node)
-            else 'untyped'
-            end
+            rbs_for_node(node) || 'untyped'
           end
 
           private
+
+          # @private
+          # @param [Docscribe::Types::Yard::node] node
+          # @return [String, nil]
+          def rbs_for_node(node)
+            simple_type(node) || composite_type(node) || collection_type(node)
+          end
+
+          # @private
+          # @param [Docscribe::Types::Yard::node] node
+          # @return [String, nil]
+          def simple_type(node)
+            case node
+            when Named then format_named(node)
+            when Literal then format_literal(node)
+            end
+          end
+
+          # @private
+          # @param [Docscribe::Types::Yard::node] node
+          # @return [String, nil]
+          def composite_type(node)
+            case node
+            when Union then format_union(node)
+            when Intersection then format_intersection(node)
+            when Optional then format_optional(node)
+            end
+          end
+
+          # @private
+          # @param [Docscribe::Types::Yard::node] node
+          # @return [String, nil]
+          def collection_type(node)
+            case node
+            when Generic then format_generic(node)
+            when Tuple then format_tuple(node)
+            when HashMap then format_hash_map(node)
+            end
+          end
 
           # @private
           # @param [Docscribe::Types::Yard::Named] node

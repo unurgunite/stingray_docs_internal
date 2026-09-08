@@ -227,6 +227,7 @@ module Docscribe
       # @return [void]
       def warn_missing_rbs_collection(conf, options)
         return if options[:rbs_collection]
+        return if conf.raw.dig('rbs', 'collection')
         return unless conf.rbs_warn_missing_collection?
         return unless File.exist?('rbs_collection.lock.yaml')
 

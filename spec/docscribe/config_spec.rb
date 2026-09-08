@@ -38,4 +38,42 @@ RSpec.describe Docscribe::Config do
       end
     end
   end
+
+  describe '#rbs_collection_dirs' do
+    before do
+      require 'docscribe/types/rbs/collection_loader'
+    end
+
+    context 'when explicit collection_dirs are configured' do
+      subject(:dirs) { described_class.new('rbs' => { 'collection_dirs' => ['/tmp/coll'] }).send(:rbs_collection_dirs) }
+
+      it 'uses them without auto-discovery' do
+        allow(Docscribe::Types::RBS::CollectionLoader).to receive(:resolve).and_raise('must not resolve')
+        expect(dirs).to eq(['/tmp/coll'])
+      end
+    end
+
+    context 'when rbs.collection is true without explicit dirs' do
+      subject(:dirs) { described_class.new('rbs' => { 'collection' => true }).send(:rbs_collection_dirs) }
+
+      it 'auto-discovers from the lock file' do
+        allow(Docscribe::Types::RBS::CollectionLoader).to receive(:resolve).and_return('/tmp/coll')
+        expect(dirs).to eq(['/tmp/coll'])
+      end
+
+      it 'returns empty without noise when no lock file exists' do
+        allow(Docscribe::Types::RBS::CollectionLoader).to receive(:resolve).and_return(nil)
+        expect(dirs).to eq([])
+      end
+    end
+
+    context 'when collection is not enabled' do
+      subject(:dirs) { described_class.new.send(:rbs_collection_dirs) }
+
+      it 'returns empty without auto-discovery' do
+        allow(Docscribe::Types::RBS::CollectionLoader).to receive(:resolve).and_raise('must not resolve')
+        expect(dirs).to eq([])
+      end
+    end
+  end
 end

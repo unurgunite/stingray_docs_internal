@@ -57,41 +57,46 @@ module Docscribe
       def check_idle_timeout: () -> void
       def accept_client: () -> void
       def handle_client: (UNIXSocket) -> void
-      def handle_request: (UNIXSocket, Hash[String, untyped]) -> void
-      def handle_check: (UNIXSocket, (String | Integer), Hash[String, untyped]) -> void
-      def handle_fix: (UNIXSocket, (String | Integer), Hash[String, untyped]) -> void
-      def handle_check_batch: (UNIXSocket, (String | Integer), Hash[String, untyped]) -> void
-      def handle_update_types: (UNIXSocket, (String | Integer), Hash[String, untyped]) -> void
-      def update_types_dir: (Hash[String, untyped]) -> String
+      def setup_socket_config: (String? socket_path, String? config_path, Integer idle_timeout) -> void
+      def setup_runtime_state: () -> void
+      def setup_caches: () -> void
+      def dispatch_request: (UNIXSocket client, Hash[String, Object] request, String method, Hash[String, Object] params) -> void
+      def dispatch_control_request: (UNIXSocket client, Hash[String, Object] request, String method) -> void
+      def handle_request: (UNIXSocket, Hash[String, Object]) -> void
+      def handle_check: (UNIXSocket, (String | Integer), Hash[String, Object]) -> void
+      def handle_fix: (UNIXSocket, (String | Integer), Hash[String, Object]) -> void
+      def handle_check_batch: (UNIXSocket, (String | Integer), Hash[String, Object]) -> void
+      def handle_update_types: (UNIXSocket, (String | Integer), Hash[String, Object]) -> void
+      def update_types_dir: (Hash[String, Object]) -> String
       def run_update_types: (String) -> Integer
       def send_update_types_response: (UNIXSocket, (String | Integer), String, Integer) -> void
-      def process_file_in_batch: (String, Symbol, ?(Integer | Float)?) -> Hash[String, (String | Array[Hash[Symbol, untyped]])]
-      def run_rewrite: (String, Symbol) -> Hash[String, (String | Array[Hash[Symbol, untyped]])]
+      def process_file_in_batch: (String, Symbol, ?(Integer | Float)?) -> Hash[String, Object]
+      def run_rewrite: (String, Symbol) -> Hash[String, Object]
       def apply_cli_overrides: (Hash[String, Object]?) -> void
       def build_effective_config: (Hash[String, Object]) -> void
       def reset_effective_config: () -> void
       def reset_effective_config_internal: () -> void
-      def rewrite_file: (String, Symbol) -> [String, { output: String, changes: Array[Hash[Symbol, untyped]] }]
+      def rewrite_file: (String, Symbol) -> [String, { output: String, changes: Array[Hash[Symbol, Object]] }]
       def handle_sig_change: (String) -> void
-      def cached_result: (Array[(String | Symbol)], Time, String) -> [String, { output: String, changes: Array[Hash[Symbol, untyped]] }]?
+      def cached_result: (Array[(String | Symbol)], Time, String) -> [String, { output: String, changes: Array[Hash[Symbol, Object]] }]?
       def clear_rbs_cache: (Docscribe::Config) -> void
-      def rewrite_and_cache: (String, Symbol, Docscribe::Config, Array[(String | Symbol)], Time) -> [String, { output: String, changes: Array[Hash[Symbol, untyped]] }]
+      def rewrite_and_cache: (String, Symbol, Docscribe::Config, Array[(String | Symbol)], Time) -> [String, { output: String, changes: Array[Hash[Symbol, Object]] }]
       def sig_hash_for: (Docscribe::Config) -> String
       def sig_rbs_files: (Array[String]) -> Array[String]
       def sig_dirs_for: (Docscribe::Config) -> Array[String]
       def handle_shutdown: (UNIXSocket, (String | Integer)) -> void
       def handle_ping: (UNIXSocket, (String | Integer)) -> void
       def send_result: (UNIXSocket, (String | Integer), Hash[String, Object]) -> void
-      def send_error: (UNIXSocket, (String | Integer | nil), Integer, String, ?untyped?) -> void
+      def send_error: (UNIXSocket, (String | Integer | nil), Integer, String, ?Hash[Symbol, Object]?) -> void
       def classify_error: (Exception, ?String?, ?Hash[String, Object]) -> [Integer, String, (Hash[Symbol, (Object | nil)] | nil)]
       def syntax_error?: (Exception) -> bool
       def timeout_error?: (Exception) -> bool
-      def classify_gem_error: (untyped) -> [Integer, String, Hash[Symbol, (String | nil)]]
-      def classify_syntax_err: (untyped, Hash[String, Object]) -> [Integer, String, Hash[Symbol, Object]]
+      def classify_gem_error: (Exception) -> [Integer, String, Hash[Symbol, (String | nil)]]
+      def classify_syntax_err: (Exception, Hash[String, Object]) -> [Integer, String, Hash[Symbol, Object]]
       def classify_timeout_err: (Exception, Hash[String, Object]) -> [Integer, String, Hash[Symbol, Object]]
       def classify_internal_err: (Exception) -> [Integer, String, Hash[Symbol, Object]]
-      def handle_request_error: (UNIXSocket, (String | Integer), untyped, String) -> void
-      def send_syntax_error: (UNIXSocket, (String | Integer), untyped, String) -> void
+      def handle_request_error: (UNIXSocket, (String | Integer), Exception, String) -> void
+      def send_syntax_error: (UNIXSocket, (String | Integer), Exception, String) -> void
       def cleanup: () -> void
     end
   end

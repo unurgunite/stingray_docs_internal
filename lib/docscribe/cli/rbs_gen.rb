@@ -29,7 +29,7 @@ module Docscribe
       # @!attribute [rw] options
       #   @return [Array<Docscribe::CLI::RbsGen::ParamTag>]
       #   @param [Array<Docscribe::CLI::RbsGen::ParamTag>] value
-      YardTags = Struct.new(:params, :return_type, :options, keyword_init: true)
+      YardTags = Struct.new(:params, :return_type, :options, keyword_init: true) #: Class[YardTags]
       # @!attribute [rw] name
       #   @return [String]
       #   @param [String] value
@@ -37,7 +37,7 @@ module Docscribe
       # @!attribute [rw] type
       #   @return [String]
       #   @param [String] value
-      ParamTag = Struct.new(:name, :type, keyword_init: true)
+      ParamTag = Struct.new(:name, :type, keyword_init: true) #: Class[ParamTag]
       # @!attribute [rw] name
       #   @return [Symbol]
       #   @param [Symbol] value
@@ -61,7 +61,7 @@ module Docscribe
       # @!attribute [rw] yard_tags
       #   @return [Docscribe::CLI::RbsGen::YardTags?]
       #   @param [Docscribe::CLI::RbsGen::YardTags?] value
-      MethodDef = Struct.new(:name, :scope, :container, :file, :line, :yard_tags, keyword_init: true)
+      MethodDef = Struct.new(:name, :scope, :container, :file, :line, :yard_tags, keyword_init: true) #: Class[MethodDef]
       # @!attribute [rw] containers
       #   @return [Array<String>]
       #   @param [Array<String>] value
@@ -86,7 +86,7 @@ module Docscribe
       #   @return [Boolean]
       #   @param [Boolean] value
       WalkContext = Struct.new(:containers, :method_defs, :path, :comment_map, :src_lines, :inside_sclass,
-                               keyword_init: true)
+                               keyword_init: true) #: Class[WalkContext]
 
       class << self
         # @param [Array<String>] argv

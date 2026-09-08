@@ -1,0 +1,49 @@
+flowchart LR
+    subgraph Entry["Entry Points"]
+        Direct["docscribe lib\n(no --server)"]
+        ViaServer["docscribe --server\nor docscribe-client"]
+        UpdateTypesFlow["update_types\ntwo-pass: aggressive → safe"]
+    end
+
+    subgraph Daemon["Server Daemon (Unix Socket)"]
+        Socket["Daemon#listen_loop\nJSON-RPC 2.0 dispatch"]
+        CacheCheck{"File cached &\nmtime fresh?"}
+        CacheStorage["LRUCache\n(1000 entries)"]
+        ApplyOverrides["apply_cli_overrides\n(reset on nil)"]
+    end
+
+    ViaServer --> Socket
+    Socket --> ApplyOverrides
+    ApplyOverrides --> CacheCheck
+    CacheCheck -->|Hit| Socket
+    CacheCheck -->|Miss| Parse
+    Direct --> Parse
+    Entry --> UpdateTypesFlow
+    UpdateTypesFlow --> Parse
+    Parse["Parsing.parse_buffer\nParser gem / Prism"]
+    Parse --> AST["AST"]
+    AST -.-> CommentScan["comment scan\n(buffer text)"]
+    AST --> Collect["Collector.process\n· Find methods\n· Track visibility\n· Find attr_*"]
+    AST --> CollectPlugins["CollectorPlugin#collect\n· Custom AST walks\n· Non-standard constructs"]
+    Collect --> Insertions["Insertion list\n(sorted by position)\n(sort_by pos at dispatch)"]
+    CollectPlugins --> Insertions
+    Insertions --> Dedup["Deduplicate\n(override by position)"]
+    Dedup --> Build["DocBuilder.build\n(entry point)\nper insertion"]
+    Build -.-> RescueNote["per-method rescue:\nerror to stderr,\nrest applies"]
+    Build --> Infer["Infer params / returns / raises\n(heuristic fallback)"]
+    Build --> SigQuery["ProviderChain\nquery external types"]
+    Build --> TagPlugins["TagPlugin#call\n(add extra @tags)"]
+    Infer --> ResultDoc["Generated YARD doc block"]
+    SigQuery --> ResultDoc
+    TagPlugins --> ResultDoc
+    ResultDoc --> Strategy{"Strategy?"}
+    Strategy -->|Safe| Merge["DocBlock.merge\npreserve + append + sort"]
+    Strategy -->|Aggressive| Replace["Replace entirely"]
+    Merge --> Rewritten["TreeRewriter#process\n(Parser::Source)\n-> rewritten source"]
+    Replace --> Rewritten
+    Rewritten --> Result["Result / response"]
+    Rewritten --> CacheStorage
+    CacheStorage --> Socket
+    Result -.-> ExitCodes["exit codes:\n0 ok / 1 changes / 2 error"]
+    Result -->|Direct mode| Output["write-mode: file\ncheck: STDOUT summary"]
+    Result -->|Server mode| Socket

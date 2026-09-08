@@ -1,0 +1,44 @@
+%% RubyMine plugin <-> gem interaction (sequence). Render: bash assets/diagrams/render.sh
+%% Sources: docscribe-rubymine DocscribeAnnotator/DocscribeDaemon/DocscribeRunner/RbsDetector; gem server/daemon.rb, protocol.rb, inline_rewriter.rb.
+sequenceDiagram
+    autonumber
+    participant U as User / IDE
+    participant A as DocscribeAnnotator<br/>(ExternalAnnotator)
+    participant R as Runner<br/>(DocscribeDaemon)
+    participant D as Gem daemon<br/>(Unix socket, JSON-RPC 2.0)
+    participant E as Engine<br/>(InlineRewriter)
+    Note over A: open / type / save (.rb, .rake, Rakefile)
+    A ->> A: collectInformation (EDT)<br/>filters, unsaved-skip (non-RBS),<br/>configHash w/o I/O, PSI stamp
+    U ->> A: background pass
+    A ->> A: doAnnotate - generation++<br/>bgConfigHash + rbsHash(sig/**)
+    A ->> A: cache get (project, file, hash)<br/>+ stamp check
+    alt cache hit (incl. empty = clean)
+        A ->> U: apply cached / null (no gem call)
+    else cache miss
+        A ->> A: saveDocument (so daemon sees disk)
+        A ->> R: executeWithFallback(check)<br/>RunOptions(file, CHECK, json)
+        R ->> R: ensureRunning - socket alive?<br/>gem 1.5.1 or newer? ruby/SDK resolve<br/>start ruby -e (15s timeout)
+        alt daemon OK
+            R ->> D: check {file, project_dir,<br/>no_boilerplate, cli_overrides?}
+            Note over R, D: cli_overrides - rbs / rbs_collection<br/>(RbsDetector) + validate_types (setting)
+            D ->> E: rewrite_with_report (safe)
+            E ->> D: changes[] {type, line, method,<br/>message, source?}
+            D ->> R: {status ok/fail, changed, changes}
+            R ->> R: buildCheckJson to parseJson
+        else daemon down / RPC null
+            R ->> R: CLI fallback - bundle exec<br/>docscribe --format json file
+        end
+        R ->> A: RunResult(success, exit, stdout, stderr)
+        A ->> A: generation still current?<br/>else discard (null)
+        alt success is false
+            A ->> A: synthetic Docscribe/Error at 1:1<br/>do NOT cache
+        else blank stdout
+            A ->> A: empty result (legit clean, cache it)
+        else parsed
+            A ->> A: cache put (non-error only)
+        end
+        A ->> U: apply - line = findYardTagLine<br/>(at-param/at-return above def)<br/>WARNING squiggle + fix by cop<br/>Updated to UpdateTypes<br/>InvalidType to Fix YARD (local)<br/>other to safe Fix / Error no fix
+    end
+
+    Note over U, R: Quick-fix (bulb) - save to fix {strategy}<br/>or update_types {dir} (whole project)<br/>refresh + balloon. Check action -<br/>same check, balloon with counts.
+    Note over U, R: Workspace - menu to collectRubyFiles<br/>chunks of 10 to check_batch {files}<br/>aggregate balloon only (no squigglies -<br/>error files counted, not shown)

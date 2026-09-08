@@ -47,13 +47,20 @@ jobs:
           bundler-cache: true
 
       - name: Docscribe (check docs are up-to-date)
-        env:
-          BUNDLE_GEMFILE: 'Gemfile'
+        # RBS is unavailable on these rubies, so fallback inference can never
+        # match the RBS-precise docs — same reason Steep is skipped below.
+        # NOTE: the check itself must run from the repo root: docscribe.yml
+        # relative paths (sig_dirs, rbs_collection.lock.yaml) resolve against
+        # the working directory, and test_project/ has no sig/.
+        if: ${{ !contains(fromJson('["2.7", "3.0", "3.1"]'), matrix.ruby) }}
         run: |
-          cd test_project
-          bundle install
-          FILES="$(cd .. && git ls-files 'lib/**/*.rb' | sed 's|^|../|')"
-          bundle exec docscribe $FILES -C ../docscribe.yml
+          cd test_project && BUNDLE_GEMFILE=Gemfile bundle install && cd ..
+          # .gem_rbs_collection/ is gitignored, so a fresh checkout has no
+          # collection and RBS lookups silently fall back to inference
+          # (dozens of false mismatches). Materialize it from the lock file.
+          bundle exec rbs collection install
+          FILES="$(git ls-files 'lib/**/*.rb')"
+          bundle exec docscribe $FILES -C docscribe.yml
 
       - name: Docscribe (aggressive mode smoke test)
         env:

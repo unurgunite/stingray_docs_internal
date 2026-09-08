@@ -29,11 +29,11 @@ module Docscribe
       def self.analyze_coverage: (Array[String] paths, Config _conf) -> CoverageStats
       def self.init_stats: () -> CoverageStats
       def self.analyze_file: (String path, CoverageStats stats) -> void
-      def self.analyze_node: (untyped node, CoverageStats stats, String src) -> void
-      def self.analyze_method_node: (untyped node, CoverageStats stats, String src) -> void
-      def self.analyze_documented_method: (untyped node, CoverageStats stats, String doc_comment) -> void
-      def self.count_method_params: (untyped node, CoverageStats stats) -> void
-      def self.count_params: (untyped node) -> Integer
+      def self.analyze_node: (Parser::AST::Node node, CoverageStats stats, String src) -> void
+      def self.analyze_method_node: (Parser::AST::Node node, CoverageStats stats, String src) -> void
+      def self.analyze_documented_method: (Parser::AST::Node node, CoverageStats stats, String doc_comment) -> void
+      def self.count_method_params: (Parser::AST::Node node, CoverageStats stats) -> void
+      def self.count_params: (Parser::AST::Node node) -> Integer
       def self.extract_doc_comment: (String src, Integer method_line) -> String?
       def self.collect_comment_lines: (Array[String] lines, Integer method_line) -> Array[String]
       def self.print_report: (CoverageStats stats, Hash[Symbol, untyped] opts) -> void

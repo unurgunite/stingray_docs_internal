@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 module SuppressErrorHelper
-  # Method documentation.
+  # Yields block and suppresses StandardError, returning nil on error.
   #
-  # @raise [StandardError]
-  # @return [Object]
-  # @return [nil] if StandardError
+  # @yieldreturn [Object] block result
+  # @return [Object, nil] block result or nil if StandardError rescued
   def suppress_error
     yield
   rescue StandardError
