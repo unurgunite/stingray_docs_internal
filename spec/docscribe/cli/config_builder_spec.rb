@@ -138,5 +138,14 @@ RSpec.describe Docscribe::CLI::ConfigBuilder do
       expect { described_class.apply_rbs_collection(raw) }
         .to output(/rbs_collection\.lock\.yaml not found/).to_stderr
     end
+
+    context 'when config enables rbs.collection' do
+      let(:conf) { Docscribe::Config.new('rbs' => { 'collection' => true }) }
+      let(:options) { default_options }
+
+      it 'skips the missing-collection nudge', :aggregate_failures do
+        expect { described_class.warn_missing_rbs_collection(conf, options) }.not_to output.to_stderr
+      end
+    end
   end
 end

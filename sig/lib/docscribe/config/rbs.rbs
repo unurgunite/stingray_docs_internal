@@ -24,7 +24,9 @@ module Docscribe
 
     def rbs_sig_dirs: () -> Array[String]
 
-    def rbs_collection_dirs: () -> Array[String]
+      def rbs_collection_dirs: () -> Array[String]
+
+      def discovered_collection_dir: () -> (String | nil)
 
     def rbs_collapse_generics?: () -> bool
 

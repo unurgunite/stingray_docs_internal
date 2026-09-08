@@ -962,7 +962,7 @@ module Docscribe
         return [] unless config.emit_rescue_conditional_returns?
         return [] if info[:has_return]
 
-        rescue_specs.filter_map do |exceptions, rtype|
+        rescue_specs.map do |exceptions, rtype|
           "#{indent}# @return [#{rtype}] if #{exceptions.join(', ')}"
         end
       end
@@ -1529,7 +1529,7 @@ module Docscribe
       def build_rescue_return_lines(indent, rescue_specs, config)
         return [] unless config.emit_rescue_conditional_returns?
 
-        rescue_specs.filter_map do |exceptions, rtype|
+        rescue_specs.map do |exceptions, rtype|
           "#{indent}# @return [#{rtype}] if #{exceptions.join(', ')}"
         end
       end
