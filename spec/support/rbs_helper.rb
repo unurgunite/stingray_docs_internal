@@ -150,4 +150,45 @@ module RbsHelper
     File.write(File.join(sig_dir, 'demo.rbs'), rbs_content)
     { 'rbs' => { 'enabled' => true, 'sig_dirs' => [sig_dir] } }
   end
+
+  # Capture writes at the stream level — some libraries (e.g. RBS) write to
+  # the global stderr stream (not $stdout), so a pipe is the only reliable
+  # observer.
+  #
+  # @yield block to run with stderr captured
+  # @return [String] everything written to stderr during the block
+  def with_captured_stderr(&block)
+    rd, wr = IO.pipe
+    begin
+      with_stderr_redirected_to(wr, &block)
+    ensure
+      wr.close unless wr.closed?
+    end
+    rd.read.tap { rd.close }
+  end
+
+  # Redirect the global stderr stream to +io+ for the duration of the block.
+  #
+  # @param [IO] io redirect target
+  # @yield block to run with stderr redirected
+  # @return [Object] the block's return value
+  def with_stderr_redirected_to(io)
+    original = $stderr.dup
+    $stderr.reopen(io)
+    yield
+  ensure
+    $stderr.reopen(original)
+    original.close
+  end
+
+  # Run the block with DOCSCRIBE_RBS_DEBUG=1 set.
+  #
+  # @yield block to run with RBS debug output enabled
+  # @return [Object] the block's return value
+  def with_rbs_debug
+    ENV['DOCSCRIBE_RBS_DEBUG'] = '1'
+    yield
+  ensure
+    ENV.delete('DOCSCRIBE_RBS_DEBUG')
+  end
 end
