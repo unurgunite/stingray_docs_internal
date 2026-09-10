@@ -6,6 +6,8 @@ module Docscribe
 
     COMMANDS: Hash[String, Symbol]
 
+    SUBCOMMAND_FILES: Hash[String, String]
+
     def self.run: (Array[String] argv) -> Integer
 
     private

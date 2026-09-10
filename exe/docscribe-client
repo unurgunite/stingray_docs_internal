@@ -156,8 +156,12 @@ when :ping
   puts JSON.generate(result || { error: 'Connection failed' })
 when :status
   alive = begin
-    File.exist?(sock) &&
-      UNIXSocket.new(sock).close && true
+    if File.exist?(sock)
+      UNIXSocket.new(sock).close
+      true
+    else
+      false
+    end
   rescue StandardError
     false
   end
