@@ -29,7 +29,7 @@ module Docscribe
         progress: false,
         parallel: false,
         server: false,
-        validate_types: false
+        validate_types: nil #: true or false when --[no-]validate-types is passed, nil otherwise
       }.freeze
 
       module_function

@@ -22,7 +22,7 @@ module Docscribe
       # @param [Hash<Symbol, Object>] options parsed CLI options
       # @return [Docscribe::Config] merged effective config
       def build(base, options)
-        return base unless needs_override?(options)
+        return warn_and_return_base(base, options) unless needs_override?(options)
 
         raw = Marshal.load(Marshal.dump(base.raw))
         apply_filter_overrides(raw, options)
@@ -46,6 +46,19 @@ module Docscribe
           sorbet_overrides?(options) ||
           output_overrides?(options) ||
           validation_overrides?(options)
+      end
+
+      # Warn about a missing collection opt-in and return the base config unchanged.
+      #
+      # Used when no CLI override is present so the nudge still fires on plain runs.
+      #
+      # @note module_function: defines #warn_and_return_base (visibility: private)
+      # @param [Docscribe::Config] base base config loaded from YAML/defaults
+      # @param [Hash<Symbol, Object>] options parsed CLI options
+      # @return [Docscribe::Config] base config unchanged
+      def warn_and_return_base(base, options)
+        warn_missing_rbs_collection(base, options)
+        base
       end
 
       # Whether any method or file filter CLI options were provided.
@@ -203,7 +216,7 @@ module Docscribe
       # @param [Hash<Symbol, Object>] options parsed CLI options
       # @return [Boolean]
       def validation_overrides?(options)
-        !!options[:validate_types]
+        !options[:validate_types].nil?
       end
 
       # Apply validation-related CLI overrides to the raw config.
@@ -213,7 +226,7 @@ module Docscribe
       # @param [Hash<Symbol, Object>] options parsed CLI options
       # @return [void]
       def apply_validation_overrides(raw, options)
-        raw['validate_types'] = true if options[:validate_types]
+        raw['validate_types'] = options[:validate_types]
       end
 
       # Warn when rbs_collection.lock.yaml exists but --rbs-collection was not passed.

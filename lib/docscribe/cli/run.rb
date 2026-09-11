@@ -770,8 +770,10 @@ module Docscribe
         # @param [Docscribe::CLI::Run::run_ctx] ctx
         # @return [Boolean]
         def validate_types_enabled?(ctx)
-          ctx[:options][:validate_types] ||
-            (ctx[:conf].respond_to?(:validate_types?) && ctx[:conf].validate_types?)
+          return true if ctx[:options][:validate_types] == true
+          return false if ctx[:options][:validate_types] == false
+
+          ctx[:conf].respond_to?(:validate_types?) && ctx[:conf].validate_types?
         end
 
         # @private

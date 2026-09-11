@@ -97,7 +97,7 @@ module Docscribe
           has_collection = File.exist?(File.join(dir_for_flag, 'rbs_collection.lock.yaml')) || File.exist?('rbs_collection.lock.yaml')
           flag = has_collection ? '--rbs-collection' : '--rbs'
           extra = @extra_argv || []
-          filtered = extra.reject { |a| %w[--no-rbs --no-validate-types].include?(a) }
+          filtered = extra.reject { |a| a == '--no-rbs' }
           has_rbs_flag = extra.any? { |a| %w[--rbs --rbs-collection --no-rbs].include?(a) }
           has_no_rbs = extra.include?('--no-rbs')
           argv1 = ['-AkB']
@@ -120,7 +120,7 @@ module Docscribe
           has_collection = File.exist?(File.join(dir_for_flag, 'rbs_collection.lock.yaml')) || File.exist?('rbs_collection.lock.yaml')
           flag = has_collection ? '--rbs-collection' : '--rbs'
           extra = @extra_argv || []
-          filtered = extra.reject { |a| %w[--no-rbs --no-validate-types].include?(a) }
+          filtered = extra.reject { |a| a == '--no-rbs' }
           has_rbs_flag = extra.any? { |a| %w[--rbs --rbs-collection --no-rbs].include?(a) }
           has_no_rbs = extra.include?('--no-rbs')
           argv2 = ['-aB']

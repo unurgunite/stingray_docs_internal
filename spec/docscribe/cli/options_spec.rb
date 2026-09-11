@@ -160,9 +160,9 @@ RSpec.describe Docscribe::CLI::Options do
     expect(opts[:rbs]).to be(false)
   end
 
-  it 'defaults validate_types to false' do
+  it 'defaults validate_types to nil (flag not passed)' do
     opts = described_class.parse!(%w[lib])
-    expect(opts[:validate_types]).to be(false)
+    expect(opts[:validate_types]).to be_nil
   end
 
   it 'last flag wins for repeated validate-types', :aggregate_failures do

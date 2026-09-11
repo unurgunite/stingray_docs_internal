@@ -3,6 +3,8 @@ module Docscribe
     module ConfigBuilder
       def self?.build: (Config base, Hash[Symbol, untyped] options) -> Config
 
+      def self?.warn_and_return_base: (Config base, Hash[Symbol, untyped] options) -> Config
+
       def self?.needs_override?: (Hash[Symbol, untyped] options) -> bool
 
       def self?.filter_overrides?: (Hash[Symbol, untyped] options) -> bool
