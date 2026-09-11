@@ -1,0 +1,5 @@
+module Docscribe
+  class Config
+    def validate_types?: () -> bool
+  end
+end

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    docscribe (1.6.1)
+    docscribe (1.6.2)
       parser (>= 3.3)
       prism (~> 1.8)
 

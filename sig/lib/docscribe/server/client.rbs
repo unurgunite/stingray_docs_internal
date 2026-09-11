@@ -13,6 +13,8 @@ module Docscribe
       def shutdown: () -> Hash[String, untyped]?
       def ping: () -> Hash[String, untyped]?
 
+      def update_types: (?dir: String, **untyped) -> Hash[String, untyped]?
+
       private
 
       def request: (String method, **untyped) -> Hash[String, untyped]?

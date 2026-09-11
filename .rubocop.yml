@@ -8,6 +8,10 @@ plugins:
 AllCops:
   NewCops: enable
   TargetRubyVersion: 2.7
+  Exclude:
+    - sig/**/*
+    - vendor/**/*
+    - .gem_rbs_collection/**/*
 
 Metrics/ClassLength:
   Enabled: false
@@ -36,5 +40,3 @@ Layout/LeadingCommentSpace:
 Layout/CommentIndentation:
   AllowForAlignment: true
 
-RSpec/MultipleMemoizedHelpers:
-  Max: 8

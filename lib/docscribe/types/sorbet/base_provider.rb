@@ -59,13 +59,45 @@ module Docscribe
           return unless defined?(RubyVM::AbstractSyntaxTree)
 
           parser = ::RBS::Prototype::RBI.new
-          parser.parse(source)
+          parse(parser, source)
           index_decls(parser.decls)
         rescue LoadError
           nil
         rescue ::RBS::BaseError, SyntaxError, StandardError => e
           warn_once("Docscribe: Sorbet signature load failed for #{label}: #{e.class}: #{e.message}")
           nil
+        end
+
+        # Parse the source with the RBS RBI prototype, suppressing the parser's
+        # "Unexpected type_node" STDERR noise unless DOCSCRIBE_RBS_DEBUG=1.
+        #
+        # @private
+        # @param [::RBS::Prototype::RBI] parser RBI parser instance
+        # @param [String] source source text to parse
+        # @return [void]
+        def parse(parser, source)
+          if ENV['DOCSCRIBE_RBS_DEBUG'] == '1'
+            parser.parse(source)
+          else
+            suppress_rbs_noise { parser.parse(source) }
+          end
+        end
+
+        # Run the block with STDERR discarded. RBS's RBI prototype prints
+        # "Unexpected type_node" directly to STDERR for constructs it doesn't
+        # model (e.g. Herb-typed RBIs); the fallback to `Any` is already handled
+        # by the parser, so the noise is safe to drop. `IO#reopen` needs a real
+        # IO or path, so redirect to File::NULL rather than a StringIO.
+        #
+        # @private
+        # @return [T] the block's return value
+        def suppress_rbs_noise
+          original_stderr = $stderr.dup
+          $stderr.reopen(File::NULL, 'w')
+          yield
+        ensure
+          $stderr.reopen(original_stderr)
+          original_stderr.close
         end
 
         # Index parsed declarations into the provider lookup table.

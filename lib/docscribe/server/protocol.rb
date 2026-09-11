@@ -13,8 +13,8 @@ module Docscribe
       #
       # @note module_function: defines #build_request (visibility: private)
       # @param [String] method method name
-      # @param [Hash<Symbol, Object>] params request parameters
-      # @return [Hash<Symbol, Object>]
+      # @param [Hash<Symbol, T>] params request parameters
+      # @return [Hash<Symbol, String, Hash<Symbol, T>>]
       def build_request(method, params = {})
         {
           jsonrpc: '2.0',
@@ -29,7 +29,7 @@ module Docscribe
       # @note module_function: defines #parse_response (visibility: private)
       # @param [String] line raw JSON line
       # @raise [JSON::ParserError]
-      # @return [Hash<String, Object>, nil]
+      # @return [Hash<String, Object>?]
       # @return [nil] if JSON::ParserError
       def parse_response(line)
         JSON.parse(line)
@@ -40,7 +40,7 @@ module Docscribe
       # Serialize a hash to a JSON line.
       #
       # @note module_function: defines #serialize (visibility: private)
-      # @param [Hash<Object, Object>] hash
+      # @param [Object] hash
       # @return [String]
       def serialize(hash)
         "#{JSON.generate(hash)}\n"

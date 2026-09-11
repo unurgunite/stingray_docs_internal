@@ -1,18 +1,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Docscribe::InlineRewriter::SourceHelpers do
-  def find_first_def(node)
-    return node if node.is_a?(Parser::AST::Node) && %i[def defs].include?(node.type)
-    return nil unless node.is_a?(Parser::AST::Node)
-
-    node.children.each do |child|
-      found = find_first_def(child)
-      return found if found
-    end
-
-    nil
-  end
-
   describe 'contiguous doc lines above a method' do
     let(:code) do
       <<~RUBY

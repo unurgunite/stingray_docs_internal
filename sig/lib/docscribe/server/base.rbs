@@ -9,6 +9,7 @@ module Docscribe
     SOCKET_DIR: String
     IDLE_TIMEOUT: Integer
     ENV_FILES: Array[String]
+    SIG_RBS_GLOB: String
 
     def self?.running?: (?String? config_path) -> bool
     def self?.read_pid: (?String? config_path) -> Integer?
@@ -16,6 +17,10 @@ module Docscribe
     def self?.socket_path: (?String? config_path) -> String
     def self?.config_hash: (String config_path) -> String
     def self?.env_hash: () -> String
+    def self?.sig_hash: () -> String
+    def self?.env_file_mtime: (String) -> String
+    def self?.sig_files: () -> Array[String]
+    def self?.sig_env_parts: () -> Array[String]
     def self?.check_platform_support!: () -> void
     def self?.ensure_running!: (?config_path: String?, ?daemonize: bool, ?timeout: Integer) -> void
     def self?.wait_for_ready: (?config_path: String?, ?timeout: Integer, ?raise_on_timeout: bool) -> bool

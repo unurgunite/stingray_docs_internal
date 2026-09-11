@@ -3,6 +3,8 @@ module Docscribe
     module ConfigBuilder
       def self?.build: (Config base, Hash[Symbol, untyped] options) -> Config
 
+      def self?.warn_and_return_base: (Config base, Hash[Symbol, untyped] options) -> Config
+
       def self?.needs_override?: (Hash[Symbol, untyped] options) -> bool
 
       def self?.filter_overrides?: (Hash[Symbol, untyped] options) -> bool
@@ -26,6 +28,10 @@ module Docscribe
       def self?.output_overrides?: (Hash[Symbol, untyped] options) -> bool
 
       def self?.apply_output_overrides: (Hash[String, untyped] raw, Hash[Symbol, untyped] options) -> void
+
+      def self?.validation_overrides?: (Hash[Symbol, untyped] options) -> bool
+
+      def self?.apply_validation_overrides: (Hash[String, untyped] raw, Hash[Symbol, untyped] options) -> void
 
       def self?.warn_missing_rbs_collection: (Config conf, Hash[Symbol, untyped] options) -> void
     end

@@ -20,7 +20,8 @@ module Docscribe
           insert_full_doc_block: 'convention',
           unsorted_tags: 'convention',
           updated_param: 'warning',
-          updated_return: 'warning'
+          updated_return: 'warning',
+          invalid_type: 'warning'
         }.freeze
 
         COP_NAME_MAP = {
@@ -32,7 +33,8 @@ module Docscribe
           insert_full_doc_block: 'Docscribe/MissingDocBlock',
           unsorted_tags: 'Docscribe/UnsortedTags',
           updated_param: 'Docscribe/UpdatedParam',
-          updated_return: 'Docscribe/UpdatedReturn'
+          updated_return: 'Docscribe/UpdatedReturn',
+          invalid_type: 'Docscribe/InvalidType'
         }.freeze
 
         # Output JSON check summary.
@@ -60,7 +62,7 @@ module Docscribe
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
         # @param [Docscribe::CLI::Formatters::opts] _options runtime options hash
-        # @return [Hash<Symbol, Object>]
+        # @return [Docscribe::CLI::Formatters::Json::json_document]
         def build_document(state, _options)
           document_hash(build_files(state), state)
         end
@@ -68,9 +70,9 @@ module Docscribe
         # Build document hash structure.
         #
         # @private
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @return [Hash<Symbol, Object>]
+        # @return [Docscribe::CLI::Formatters::Json::json_document]
         def document_hash(files, state)
           {
             metadata: metadata_hash,
@@ -82,7 +84,7 @@ module Docscribe
         # Build tool metadata hash.
         #
         # @private
-        # @return [Hash<Symbol, String>]
+        # @return [Docscribe::CLI::Formatters::Json::json_metadata]
         def metadata_hash
           {
             docscribe_version: Docscribe::VERSION,
@@ -93,9 +95,9 @@ module Docscribe
         # Build summary statistics hash.
         #
         # @private
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @return [Hash<Symbol, Integer>]
+        # @return [Docscribe::CLI::Formatters::Json::json_summary]
         def summary_hash(files, state)
           {
             offense_count: files.sum { |f| f[:offenses].size },
@@ -109,7 +111,7 @@ module Docscribe
         #
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @return [Array<Hash<Symbol, Object>>]
+        # @return [Array<Docscribe::CLI::Formatters::Json::json_file>]
         def build_files(state)
           files = [] #: Array[Hash[untyped, untyped]]
 
@@ -124,15 +126,16 @@ module Docscribe
         #
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @return [void]
         def append_check_files(state, files)
           state[:fail_paths].each do |path|
-            files << file_entry(path, state[:fail_changes][path] || [])
+            merge_or_append(files, path, build_offenses(state[:fail_changes][path] || []))
           end
 
           state[:type_mismatch_paths].each do |path|
-            files << file_entry(path, state[:type_mismatch_changes][path] || [], severity: 'warning')
+            changes = state[:type_mismatch_changes][path] || []
+            merge_or_append(files, path, build_offenses(changes, severity: 'warning'))
           end
         end
 
@@ -140,7 +143,7 @@ module Docscribe
         #
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @return [void]
         def append_corrected_files(state, files)
           state[:corrected_paths].each do |path|
@@ -152,7 +155,7 @@ module Docscribe
         #
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @return [void]
         def append_error_files(state, files)
           state[:error_paths].each do |path|
@@ -163,12 +166,12 @@ module Docscribe
         # Merge or append file offenses.
         #
         # @private
-        # @param [Array<Hash<Symbol, Object>>] files files offenses array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_file>] files files offenses array
         # @param [String] path file path string
-        # @param [Array<Hash<Symbol, Object>>] offenses offense objects array
+        # @param [Array<Docscribe::CLI::Formatters::Json::json_offense>] offenses offense objects array
         # @return [void]
         def merge_or_append(files, path, offenses)
-          existing = files.find { |f| f[:path] == path }
+          existing = files.find { |f| normalize_path(f[:path]) == normalize_path(path) }
 
           if existing
             existing[:offenses].concat(offenses)
@@ -177,15 +180,18 @@ module Docscribe
           end
         end
 
-        # Build single file entry hash.
+        # Normalize a path for dedup comparison, resolving symlinks
+        # (e.g. /tmp vs /private/tmp on macOS).
         #
         # @private
         # @param [String] path file path string
-        # @param [Array<Docscribe::CLI::Formatters::change>] changes changes info array
-        # @param [String?] severity offense severity level
-        # @return [Hash<Symbol, Object>]
-        def file_entry(path, changes, severity: nil)
-          { path: path, offenses: build_offenses(changes, severity: severity) }
+        # @raise [SystemCallError]
+        # @raise [ArgumentError]
+        # @return [String]
+        def normalize_path(path)
+          File.realpath(path)
+        rescue SystemCallError, ArgumentError
+          File.expand_path(path)
         end
 
         # Build error offense entry.
@@ -193,7 +199,7 @@ module Docscribe
         # @private
         # @param [Docscribe::CLI::Formatters::state] state formatter state hash
         # @param [String] path file path string
-        # @return [Hash<Symbol, Object>]
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
         def error_offense(state, path)
           error_offense_hash(state[:error_messages][path] || 'Unknown error')
         end
@@ -202,7 +208,7 @@ module Docscribe
         #
         # @private
         # @param [String] message error message string
-        # @return [Hash<Symbol, Object>]
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
         def error_offense_hash(message)
           { severity: 'fatal', cop_name: 'Docscribe/ProcessingError', message: message,
             corrected: false, correctable: false, location: default_location }
@@ -211,7 +217,7 @@ module Docscribe
         # Default location hash value.
         #
         # @private
-        # @return [Hash<Symbol, Integer>]
+        # @return [Docscribe::CLI::Formatters::Json::json_location]
         def default_location
           { start_line: 1, start_column: 1, last_line: 1, last_column: 1 }
         end
@@ -221,7 +227,7 @@ module Docscribe
         # @private
         # @param [Array<Docscribe::CLI::Formatters::change>] changes changes info array
         # @param [String?] severity offense severity level
-        # @return [Array<Hash<Symbol, Object>>]
+        # @return [Array<Docscribe::CLI::Formatters::Json::json_offense>]
         def build_offenses(changes, severity: nil)
           changes.map { |change| build_offense(change, severity) }
         end
@@ -231,8 +237,18 @@ module Docscribe
         # @private
         # @param [Docscribe::CLI::Formatters::change] change change info hash
         # @param [String?] severity offense severity level
-        # @return [Hash<Symbol, Object>]
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
         def build_offense(change, severity)
+          offense = base_offense(change, severity)
+          attach_source(offense, change)
+          attach_type(offense, change)
+        end
+
+        # @private
+        # @param [Docscribe::CLI::Formatters::change] change
+        # @param [String?] severity
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
+        def base_offense(change, severity)
           {
             severity: severity || SEVERITY_MAP[change[:type]] || 'convention',
             cop_name: COP_NAME_MAP[change[:type]] || cop_name_fallback(change),
@@ -243,11 +259,40 @@ module Docscribe
           }
         end
 
+        # @private
+        # @param [Docscribe::CLI::Formatters::Json::json_offense] offense
+        # @param [Docscribe::CLI::Formatters::change] change
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
+        def attach_source(offense, change)
+          source = offense_source(change)
+          offense[:source] = source if source
+          offense
+        end
+
+        # Attach machine-readable change type when present.
+        #
+        # @private
+        # @param [Docscribe::CLI::Formatters::Json::json_offense] offense offense hash being built
+        # @param [Docscribe::CLI::Formatters::change] change change info hash
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
+        def attach_type(offense, change)
+          type = change[:type] || change['type']
+          offense[:type] = type.to_s if type
+          offense
+        end
+
+        # @private
+        # @param [Docscribe::CLI::Formatters::change] change
+        # @return [String, nil]
+        def offense_source(change)
+          change[:source] || change['source']
+        end
+
         # Build location hash from change.
         #
         # @private
         # @param [Docscribe::CLI::Formatters::change] change change info hash
-        # @return [Hash<Symbol, Integer>]
+        # @return [Docscribe::CLI::Formatters::Json::json_location]
         def location_for(change)
           line = change[:line] || 1
           { start_line: line, start_column: 1, last_line: line, last_column: 1 }

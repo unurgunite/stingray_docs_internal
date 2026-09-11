@@ -6,8 +6,8 @@ module Docscribe
   module Server
     # Client for communicating with a running Docscribe daemon.
     class Client
-      # @param [String, nil] socket_path custom socket path (defaults to server default)
-      # @param [String, nil] config_path optional config path for socket lookup
+      # @param [String?] socket_path custom socket path (defaults to server default)
+      # @param [String?] config_path optional config path for socket lookup
       # @return [void]
       def initialize(socket_path = nil, config_path: nil)
         @socket_path = socket_path || Server.socket_path(config_path)
@@ -17,8 +17,8 @@ module Docscribe
       #
       # @param [String] file path to file to check
       # @param [Symbol] strategy rewrite strategy (:safe, :aggressive)
-      # @param [Hash<Symbol, Object>] rest extra JSON-RPC params (e.g. cli_overrides)
-      # @return [Hash<String, Object>, nil] response hash or nil if server unreachable
+      # @param [Object] rest extra JSON-RPC params (e.g. cli_overrides)
+      # @return [Hash<String, Object>?] response hash or nil if server unreachable
       def check(file:, strategy: :safe, **rest)
         request('check', file: file, strategy: strategy, **rest)
       end
@@ -27,22 +27,31 @@ module Docscribe
       #
       # @param [String] file path to file to fix
       # @param [Symbol] strategy rewrite strategy (:safe, :aggressive)
-      # @param [Hash<Symbol, Object>] rest extra JSON-RPC params (e.g. cli_overrides)
-      # @return [Hash<String, Object>, nil] response hash or nil if server unreachable
+      # @param [Object] rest extra JSON-RPC params (e.g. cli_overrides)
+      # @return [Hash<String, Object>?] response hash or nil if server unreachable
       def fix(file:, strategy: :safe, **rest)
         request('fix', file: file, strategy: strategy, **rest)
       end
 
       # Send a shutdown request to the server.
       #
-      # @return [Hash<String, Object>, nil] response hash or nil if server unreachable
+      # @return [Hash<String, Object>?] response hash or nil if server unreachable
       def shutdown
         request('shutdown')
       end
 
+      # Send an update_types request to the server.
+      #
+      # @param [String] dir directory to update (defaults to '.')
+      # @param [Object] rest extra JSON-RPC params (e.g. cli_overrides)
+      # @return [Hash<String, Object>?] response hash or nil if server unreachable
+      def update_types(dir: '.', **rest)
+        request('update_types', dir: dir, **rest)
+      end
+
       # Ping the server and get version/pid/uptime info.
       #
-      # @return [Hash<String, Object>, nil] response hash or nil if server unreachable
+      # @return [Hash<String, Object>?] response hash or nil if server unreachable
       def ping
         request('ping')
       end
@@ -53,8 +62,8 @@ module Docscribe
       #
       # @private
       # @param [String] method method name
-      # @param [Hash<Symbol, Object>] params request parameters
-      # @return [Hash<String, Object>, nil]
+      # @param [Object] params request parameters
+      # @return [Hash<String, Object>?]
       def request(method, **params)
         connect do |socket|
           req = Protocol.build_request(method, params)
@@ -72,7 +81,7 @@ module Docscribe
       # @private
       # @raise [Errno::ECONNREFUSED]
       # @raise [Errno::ENOENT]
-      # @return [T, nil] yield return value or nil on connection error
+      # @return [U?] yield return value or nil on connection error
       def connect
         socket = UNIXSocket.new(@socket_path)
         yield socket

@@ -3,19 +3,6 @@
 RSpec.describe Docscribe::Plugin::Base::CollectorPlugin do
   after { Docscribe::Plugin::Registry.clear! }
 
-  def build_plugin(anchor_type:, doc:)
-    Class.new(TestCollectorPluginBase) do
-      include TestPlugins::FindFirst
-
-      def collect(ast, _buffer)
-        node = find_first(ast, @anchor_type)
-        return [] unless node
-
-        [{ anchor_node: node, doc: @doc }]
-      end
-    end.new(anchor_type: anchor_type, doc: doc)
-  end
-
   context 'when anchor_node is :def and plugin doc is tag-only' do
     subject(:out) { inline(code, config: conf, strategy: :safe) }
 

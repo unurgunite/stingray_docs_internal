@@ -6,6 +6,24 @@ require 'docscribe/cli/run'
 module Docscribe
   # CLI entry point and command dispatch.
   module CLI
+    COMMANDS = {
+      'check_for_comments' => :CheckForComments,
+      'config' => :ConfigDump,
+      'coverage' => :Coverage,
+      'generate' => :Generate,
+      'init' => :Init,
+      'rbs' => :RbsGen,
+      'server' => :ServerCmd,
+      'sigs' => :Sigs,
+      'update_types' => :UpdateTypes
+    }.freeze
+
+    # Subcommands whose file name differs from the command name.
+    SUBCOMMAND_FILES = {
+      'config' => 'config_dump',
+      'rbs' => 'rbs_gen'
+    }.freeze
+
     class << self
       # @param [Array<String>] argv
       # @return [Integer]
@@ -16,18 +34,6 @@ module Docscribe
         options = Docscribe::CLI::Options.parse!(argv)
         Docscribe::CLI::Run.run(options: options, argv: argv)
       end
-
-      COMMANDS = {
-        'check_for_comments' => :CheckForComments,
-        'config' => :ConfigDump,
-        'coverage' => :Coverage,
-        'generate' => :Generate,
-        'init' => :Init,
-        'rbs' => :RbsGen,
-        'server' => :ServerCmd,
-        'sigs' => :Sigs,
-        'update_types' => :UpdateTypes
-      }.freeze
 
       private
 
@@ -46,7 +52,7 @@ module Docscribe
         const_name = COMMANDS[cmd]
         return 0 unless const_name
 
-        require "docscribe/cli/#{cmd == 'rbs' ? 'rbs_gen' : cmd}"
+        require "docscribe/cli/#{SUBCOMMAND_FILES.fetch(cmd) { cmd }}"
         Docscribe::CLI.const_get(const_name).run(argv)
       end
     end

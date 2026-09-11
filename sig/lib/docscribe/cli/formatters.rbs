@@ -10,7 +10,9 @@ module Docscribe
         ?line: Integer,
         ?method: String,
         ?message: String,
-        ?extra: Hash[Symbol, top]
+        ?extra: Hash[Symbol, top],
+        ?source: String,
+        ?param: String
       }
 
       type state = {

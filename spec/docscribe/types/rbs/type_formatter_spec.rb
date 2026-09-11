@@ -7,10 +7,6 @@ RSpec.describe 'Docscribe::Types::RBS::TypeFormatter' do
   end
 
   describe '.to_yard' do
-    def yard(type)
-      Docscribe::Types::RBS::TypeFormatter.to_yard(type)
-    end
-
     let(:integer_type) { RBS::Types::ClassInstance.new(name: type_name('::Integer'), args: [], location: nil) }
     let(:string_type) { RBS::Types::ClassInstance.new(name: type_name('::String'), args: [], location: nil) }
     let(:void_function) do
@@ -71,10 +67,6 @@ RSpec.describe 'Docscribe::Types::RBS::TypeFormatter' do
       end
     end
 
-    def type_name(str)
-      RBS::TypeName.parse(str)
-    end
-
     describe 'compound types' do
       it 'formats Optional' do
         type = RBS::Types::Optional.new(type: string_type, location: nil)
@@ -123,10 +115,6 @@ RSpec.describe 'Docscribe::Types::RBS::TypeFormatter' do
       let(:object_type) { RBS::Types::Bases::Any.new(location: nil) }
       let(:string_type) { RBS::Types::ClassInstance.new(name: type_name('::String'), args: [], location: nil) }
       let(:integer_type) { RBS::Types::ClassInstance.new(name: type_name('::Integer'), args: [], location: nil) }
-
-      def yard_cog(type, collapse_object_generics: false)
-        Docscribe::Types::RBS::TypeFormatter.to_yard(type, collapse_object_generics: collapse_object_generics)
-      end
 
       it 'keeps Array<Object> when collapse_object_generics is false (default)' do
         type = RBS::Types::ClassInstance.new(name: type_name('::Array'), args: [object_type], location: nil)

@@ -138,5 +138,99 @@ RSpec.describe Docscribe::CLI::ConfigBuilder do
       expect { described_class.apply_rbs_collection(raw) }
         .to output(/rbs_collection\.lock\.yaml not found/).to_stderr
     end
+
+    context 'when config enables rbs.collection' do
+      let(:conf) { Docscribe::Config.new('rbs' => { 'collection' => true }) }
+      let(:options) { default_options }
+
+      it 'skips the missing-collection nudge', :aggregate_failures do
+        expect { described_class.warn_missing_rbs_collection(conf, options) }.not_to output.to_stderr
+      end
+    end
+  end
+
+  describe 'validation_overrides?' do
+    it 'returns false when the flag was not passed (nil default)' do
+      expect(described_class.validation_overrides?(default_options)).to be(false)
+    end
+
+    it 'returns true for explicit --validate-types' do
+      opts = default_options.merge(validate_types: true)
+      expect(described_class.validation_overrides?(opts)).to be(true)
+    end
+
+    it 'returns true for explicit --no-validate-types' do
+      opts = default_options.merge(validate_types: false)
+      expect(described_class.validation_overrides?(opts)).to be(true)
+    end
+  end
+
+  describe 'apply_validation_overrides' do
+    it 'sets true for --validate-types' do
+      raw = {}
+      described_class.apply_validation_overrides(raw, default_options.merge(validate_types: true))
+      expect(raw['validate_types']).to be(true)
+    end
+
+    it 'sets false for --no-validate-types' do
+      raw = { 'validate_types' => true }
+      described_class.apply_validation_overrides(raw, default_options.merge(validate_types: false))
+      expect(raw['validate_types']).to be(false)
+    end
+  end
+
+  describe 'build with validate_types' do
+    it 'keeps yml true when the flag was not passed', :aggregate_failures do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(false)
+      base = Docscribe::Config.new('validate_types' => true)
+      expect(described_class.build(base, default_options).validate_types?).to be(true)
+    end
+
+    it 'lets explicit false override yml true' do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(false)
+      base = Docscribe::Config.new('validate_types' => true)
+      opts = default_options.merge(validate_types: false)
+      expect(described_class.build(base, opts).validate_types?).to be(false)
+    end
+
+    it 'lets explicit true enable validation without yml' do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(false)
+      base = Docscribe::Config.new
+      opts = default_options.merge(validate_types: true)
+      expect(described_class.build(base, opts).validate_types?).to be(true)
+    end
+  end
+
+  describe 'build without overrides warns about missing collection' do
+    let(:base) { Docscribe::Config.new }
+
+    it 'warns when the lock file exists' do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(true)
+      expect { described_class.build(base, default_options) }
+        .to output(/rbs_collection\.lock\.yaml found but --rbs-collection not set/).to_stderr
+    end
+
+    it 'returns the base config object' do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(true)
+      expect(described_class.build(base, default_options)).to be(base)
+    end
+
+    it 'stays silent without the lock file' do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(false)
+      expect { described_class.build(base, default_options) }.not_to output.to_stderr
+    end
+
+    it 'stays silent when suppression is configured' do
+      base = Docscribe::Config.new('rbs' => { 'warn_missing_collection' => false })
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(true)
+      expect { described_class.build(base, default_options) }.not_to output.to_stderr
+    end
   end
 end

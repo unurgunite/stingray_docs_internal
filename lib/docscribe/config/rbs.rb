@@ -107,10 +107,31 @@ module Docscribe
     # RBS environment errors (e.g. duplicate declarations against core
     # stdlib types) do not silence all RBS lookups.
     #
+    # When no explicit dirs are configured but `rbs.collection: true` is
+    # set, the lock file is auto-discovered (same as `--rbs-collection`),
+    # so plain `check` gets the full environment without extra flags.
+    #
     # @private
     # @return [Array<String>]
     def rbs_collection_dirs
-      Array(raw.dig('rbs', 'collection_dirs')).map(&:to_s) # steep:ignore
+      explicit = Array(raw.dig('rbs', 'collection_dirs')).map(&:to_s) # steep:ignore
+      return explicit unless explicit.empty?
+      return [] unless raw.dig('rbs', 'collection')
+
+      Array(discovered_collection_dir).compact
+    end
+
+    # Resolve the collection directory from rbs_collection.lock.yaml.
+    #
+    # @private
+    # @raise [LoadError]
+    # @return [String, nil] resolved directory or nil when no lock file
+    # @return [nil] if LoadError
+    def discovered_collection_dir
+      require 'docscribe/types/rbs/collection_loader'
+      Docscribe::Types::RBS::CollectionLoader.resolve
+    rescue LoadError
+      nil
     end
 
     # Whether generic RBS types should be collapsed to simpler container names.

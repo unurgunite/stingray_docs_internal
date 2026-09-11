@@ -12,18 +12,6 @@ RSpec.describe Docscribe::Plugin::Base::CollectorPlugin do
   # Under Ruby 3.4+ Docscribe may parse via Prism translation, and the returned AST
   # may not have `each_node`. So in tests we avoid `each_node` to mimic real-world
   # plugin robustness.
-  def build_collector_plugin(doc_line)
-    Class.new(TestCollectorPluginBase) do
-      include TestPlugins::FindFirstDef
-
-      def collect(ast, _buffer)
-        node = find_first_def(ast)
-        return [] unless node
-
-        [{ anchor_node: node, doc: @doc_line }]
-      end
-    end.new(doc_line: doc_line)
-  end
 
   context 'when two CollectorPlugins target the same anchor with different priorities' do
     before do

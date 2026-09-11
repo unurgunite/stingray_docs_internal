@@ -45,6 +45,7 @@ module RbsHelper
   # @param [String] code Ruby source to rewrite
   # @param [String] rbs RBS file content
   # @param [String] sig_dir_name relative path for the sig directory
+  # @param [Hash] config additional config options merged into base
   # @return [String] rewritten source
   def inline_with_rbs(code:, rbs:, sig_dir_name: 'sig', config: {})
     skip_unless_rbs_available!
@@ -61,6 +62,12 @@ module RbsHelper
     end
   end
 
+  # Runs docscribe in no-write mode and captures stdout for given source.
+  #
+  # @param [String] source Ruby source to check
+  # @param [Array<String>] extra additional CLI arguments forwarded to run
+  # @param [String] filename temporary file name
+  # @return [String] captured stdout output
   def rbs_out(source, *extra, filename: 'test.rb')
     Dir.mktmpdir do |dir|
       path = File.join(dir, filename)
@@ -69,6 +76,13 @@ module RbsHelper
     end
   end
 
+  # Creates a temporary directory with a Ruby file and yields its paths.
+  #
+  # @param [String] source Ruby source to write
+  # @param [String] filename file name inside temp dir
+  # @yieldparam [String] path path to the Ruby file
+  # @yieldparam [String] dir temporary directory path
+  # @return [Object] block result
   def with_rbs(source, filename: 'test.rb')
     Dir.mktmpdir do |dir|
       path = File.join(dir, filename)
@@ -77,6 +91,15 @@ module RbsHelper
     end
   end
 
+  # Creates temp dir with Ruby file and existing RBS sig, yields paths.
+  #
+  # @param [String] rb_source Ruby source to write
+  # @param [String] old_content existing RBS content for sig file
+  # @param [String] sig_name signature file name
+  # @yieldparam [String] path path to Ruby file
+  # @yieldparam [String] dir temporary directory path
+  # @yieldparam [String] sig_dir signature directory path
+  # @return [Object] block result
   def with_existing_rbs(rb_source, old_content, sig_name: 'test.rbs')
     Dir.mktmpdir do |dir|
       path = File.join(dir, 'test.rb')
@@ -89,18 +112,22 @@ module RbsHelper
 
   private
 
-  # Skip the example if the RBS gem is unavailable.
+  # Skips example unless RBS gem is available.
   #
-  # Call this at the top of any example that depends on RBS bridge parsing.
+  # Call at the top of any example that depends on RBS bridge parsing.
+  #
+  # @return [void]
   def skip_unless_rbs_available!
     require 'rbs'
   rescue LoadError
     skip 'RBS not available'
   end
 
-  # Skip the example if the RBS gem or RubyVM::AbstractSyntaxTree is unavailable.
+  # Skips example unless RBS and RubyVM::AbstractSyntaxTree are available.
   #
-  # Call this at the top of any example that depends on Sorbet/RBS bridge parsing.
+  # Call at the top of any example that depends on Sorbet/RBS bridge parsing.
+  #
+  # @return [void]
   def skip_unless_sorbet_bridge_available!
     begin
       require 'rbs'
@@ -111,10 +138,57 @@ module RbsHelper
     skip 'RubyVM::AbstractSyntaxTree not available' unless defined?(RubyVM::AbstractSyntaxTree)
   end
 
+  # Builds RBS config hash for a temporary sig directory.
+  #
+  # @param [String] dir temporary directory base path
+  # @param [String] sig_dir_name relative sig directory name
+  # @param [String] rbs_content RBS content to write
+  # @return [Hash<String, Hash>] RBS config fragment with enabled sig_dirs
   def rbs_config(dir, sig_dir_name, rbs_content)
     sig_dir = File.join(dir, sig_dir_name)
     FileUtils.mkdir_p(sig_dir)
     File.write(File.join(sig_dir, 'demo.rbs'), rbs_content)
     { 'rbs' => { 'enabled' => true, 'sig_dirs' => [sig_dir] } }
+  end
+
+  # Capture writes at the stream level — some libraries (e.g. RBS) write to
+  # the global stderr stream (not $stdout), so a pipe is the only reliable
+  # observer.
+  #
+  # @yield block to run with stderr captured
+  # @return [String] everything written to stderr during the block
+  def with_captured_stderr(&block)
+    rd, wr = IO.pipe
+    begin
+      with_stderr_redirected_to(wr, &block)
+    ensure
+      wr.close unless wr.closed?
+    end
+    rd.read.tap { rd.close }
+  end
+
+  # Redirect the global stderr stream to +io+ for the duration of the block.
+  #
+  # @param [IO] io redirect target
+  # @yield block to run with stderr redirected
+  # @return [Object] the block's return value
+  def with_stderr_redirected_to(io)
+    original = $stderr.dup
+    $stderr.reopen(io)
+    yield
+  ensure
+    $stderr.reopen(original)
+    original.close
+  end
+
+  # Run the block with DOCSCRIBE_RBS_DEBUG=1 set.
+  #
+  # @yield block to run with RBS debug output enabled
+  # @return [Object] the block's return value
+  def with_rbs_debug
+    ENV['DOCSCRIBE_RBS_DEBUG'] = '1'
+    yield
+  ensure
+    ENV.delete('DOCSCRIBE_RBS_DEBUG')
   end
 end

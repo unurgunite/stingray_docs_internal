@@ -27,7 +27,7 @@ module Docscribe
     class << self
       # Start the server daemon if not running.
       #
-      # @param [String, nil] config_path optional config file path
+      # @param [String?] config_path optional config file path
       # @param [Boolean] daemonize redirect stdin/stdout/stderr to /dev/null
       # @param [Integer] timeout max seconds to wait for readiness
       # @return [void]
@@ -48,7 +48,7 @@ module Docscribe
 
       # Start the server daemon and wait for it to become ready.
       #
-      # @param [String, nil] config_path optional config path for socket/pid lookup
+      # @param [String?] config_path optional config path for socket/pid lookup
       # @param [Integer] timeout max seconds to wait for readiness
       # @param [Boolean] raise_on_timeout
       # @raise [StandardError]
@@ -75,7 +75,7 @@ module Docscribe
       # if yes, the daemon is still starting up (don't clean up);
       # if no, removes stale socket and pid files.
       #
-      # @param [String, nil] config_path optional config path for socket lookup
+      # @param [String?] config_path optional config path for socket lookup
       # @raise [Errno::ECONNREFUSED]
       # @raise [Errno::ENOENT]
       # @raise [Errno::ENOTSOCK]
@@ -101,7 +101,7 @@ module Docscribe
       # Handle ECONNREFUSED: check if the pid process is alive.
       # Cleans up only if the process is dead.
       #
-      # @param [String, nil] config_path
+      # @param [String?] config_path
       # @return [Boolean] false (not running)
       def handle_stale_socket?(config_path)
         pid = read_pid(config_path)
@@ -122,9 +122,9 @@ module Docscribe
         false
       end
 
-      # @param [String, nil] config_path
+      # @param [String?] config_path
       # @raise [StandardError]
-      # @return [Integer, nil]
+      # @return [Integer?]
       # @return [nil] if StandardError
       def read_pid(config_path = nil)
         File.read(pid_path(config_path)).to_i if File.exist?(pid_path(config_path))
@@ -134,20 +134,21 @@ module Docscribe
 
       # Remove stale socket and pid files.
       #
-      # @param [String, nil] config_path
+      # @param [String?] config_path
       # @return [void]
       def clean_socket_files(config_path)
         FileUtils.rm_f(socket_path(config_path))
         FileUtils.rm_f(pid_path(config_path))
       end
 
-      # @param [String, nil] config_path
+      # @param [String?] config_path
       # @return [String]
       def pid_path(config_path = nil)
         "#{socket_path(config_path)}.pid"
       end
 
-      ENV_FILES = %w[Gemfile.lock rbs_collection.lock.yaml].freeze
+      ENV_FILES = %w[Gemfile.lock rbs_collection.lock.yaml docscribe.yml].freeze
+      SIG_RBS_GLOB = 'sig/**/*.rbs'
 
       # @param [String] config_path
       # @return [String]
@@ -180,7 +181,7 @@ module Docscribe
       # Environment files (Gemfile.lock, rbs_collection.lock.yaml) are also
       # included so daemon is invalidated when gems or RBS types change.
       #
-      # @param [String, nil] config_path optional config path to differentiate
+      # @param [String?] config_path optional config path to differentiate
       # @return [String]
       def socket_path(config_path = nil)
         seed = +Dir.pwd
@@ -195,19 +196,49 @@ module Docscribe
 
       # Hash of environment files that affect analysis results.
       # When any of these change, the daemon is invalidated (new socket path).
+      # Includes Gemfile.lock, rbs_collection.lock.yaml, docscribe.yml and all sig/**/*.rbs.
       #
       # @return [String]
       def env_hash
-        parts = ENV_FILES.map do |file|
-          path = File.join(Dir.pwd, file)
-          File.exist?(path) ? File.mtime(path).to_f.to_s : '0'
-        end
+        parts = ENV_FILES.map { |file| env_file_mtime(file) }
+        parts.concat(sig_env_parts)
         Digest::MD5.hexdigest(parts.join(':'))
+      end
+
+      # Hash of RBS signature files for cache invalidation inside daemon.
+      # Used by Daemon#rewrite_file to detect sig changes without requiring a new socket.
+      #
+      # @return [String]
+      def sig_hash
+        files = sig_files
+        parts = files.map { |p| "#{p}:#{File.mtime(p).to_f}" }
+        parts << "count:#{files.size}"
+        Digest::MD5.hexdigest(parts.join('|'))
+      end
+
+      # @param [String] file
+      # @return [String]
+      def env_file_mtime(file)
+        path = File.join(Dir.pwd, file)
+        File.exist?(path) ? File.mtime(path).to_f.to_s : '0'
+      end
+
+      # @return [Array<String>]
+      def sig_env_parts
+        files = sig_files
+        mtimes = files.map { |p| File.mtime(p).to_f.to_s }
+        mtimes << files.size.to_s
+        mtimes
+      end
+
+      # @return [Array<String>]
+      def sig_files
+        Dir.glob(File.join(Dir.pwd, SIG_RBS_GLOB)).sort
       end
 
       public :read_pid, :pid_path, :socket_path
 
-      # @param [String, nil] config_path
+      # @param [String?] config_path
       # @param [Boolean] daemonize
       # @return [void]
       def start_daemon_process(config_path:, daemonize:)

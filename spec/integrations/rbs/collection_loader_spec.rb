@@ -8,18 +8,6 @@ RSpec.describe Docscribe::Types::RBS::CollectionLoader do
 
     after { FileUtils.rm_rf(root) }
 
-    def write_lock(path: nil)
-      data = { 'sources' => [], 'gems' => [] }
-      data['path'] = path if path
-      File.write(File.join(root, 'rbs_collection.lock.yaml'), data.to_yaml)
-    end
-
-    def create_collection_dir(rel)
-      dir = File.join(root, rel)
-      FileUtils.mkdir_p(dir)
-      dir
-    end
-
     context 'when rbs_collection.lock.yaml is absent' do
       it 'returns nil' do
         expect(described_class.resolve(root: root)).to be_nil

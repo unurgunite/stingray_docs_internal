@@ -117,7 +117,10 @@ RSpec.describe Docscribe::CLI do
         err
       end
 
-      after { FileUtils.remove_entry(dir) }
+      after do
+        Open3.capture3(RbConfig.ruby, exe, 'server', 'stop', chdir: dir)
+        FileUtils.remove_entry(dir)
+      end
 
       it 'starts as not running' do
         expect(server_status).to include('not running')
@@ -131,6 +134,7 @@ RSpec.describe Docscribe::CLI do
       it 'returns to not running after stop' do
         Open3.capture3(RbConfig.ruby, exe, 'server', 'start', chdir: dir)
         Open3.capture3(RbConfig.ruby, exe, 'server', 'stop', chdir: dir)
+        sleep 0.2
         expect(server_status).to include('not running')
       end
     end

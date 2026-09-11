@@ -123,6 +123,24 @@ RSpec.describe Docscribe::CLI::Formatters::Sarif do
       end
     end
 
+    context 'with source field' do
+      before do
+        state.merge!(
+          checked_fail: 1,
+          fail_paths: ['test.rb'],
+          fail_changes: { 'test.rb' => [{ type: :updated_param, line: 5, method: 'Foo#bar', source: 'rbs' }] }
+        )
+      end
+
+      it 'includes source in properties' do
+        expect(results[0]['properties']['source']).to eq('rbs')
+      end
+
+      it 'includes type in properties' do
+        expect(results[0]['properties']['type']).to eq('updated_param')
+      end
+    end
+
     context 'with errors' do
       before do
         state.merge!(
