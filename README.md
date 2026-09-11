@@ -196,11 +196,11 @@ How it works, briefly: the IDE annotator collects file info on open/type/save, a
 
 Version gates (plugin behavior by gem version):
 
-| Gem version | Plugin behavior |
-|---|---|
-| `< 1.5.1` | always CLI, no daemon mode |
-| `< 1.5.2` | no batch mode (workspace check scans the directory via CLI) |
-| `< 1.6.2` | `update_types` falls back to CLI on unknown method |
+| Gem version | Plugin behavior                                             |
+|-------------|-------------------------------------------------------------|
+| `< 1.5.1`   | always CLI, no daemon mode                                  |
+| `< 1.5.2`   | no batch mode (workspace check scans the directory via CLI) |
+| `< 1.6.2`   | `update_types` falls back to CLI on unknown method          |
 
 ## CLI
 
@@ -276,6 +276,10 @@ If you pass no files and don't use `--stdin`, Docscribe processes the current di
 - `--format FORMAT`  
   Output format: `text` (default, human-readable), `json` (machine-readable, RuboCop-compatible), or `sarif` (SARIF 2.1
   JSON, compatible with GitHub Code Scanning).
+  Every JSON offense carries `cop_name`, `message`, `location`, plus machine-readable `type`
+  (`updated_return`, `missing_param`, ...) and, for type mismatches, `source` (`"rbs"`, `"infer"` or `"syntax"`).
+  Files are grouped by normalized path, so the same file passed under different spellings
+  (absolute, relative, symlinked) appears once.
 
 - `--rbs`  
   Use RBS signatures for `@param`/`@return` when available (falls back to inference).
@@ -1180,7 +1184,9 @@ Return values:
 - For control flow (`if`/`case`), it unifies branches conservatively.
 - Blocks resolve to generics where possible: `map`/`then` over known elements give `Array<String>` instead of
   bare `Array`; `arr << x` and `x += 1` resolve through RBS (`self`-returns stay `self`); `&.`/`||`/`()` receivers
-  are unwrapped before lookup; `each_with_index` chains infer `Enumerator`/`Hash` element types.
+  are unwrapped before lookup; `each_with_index` chains infer `Enumerator`/`Hash` element types
+  (`arr.each_with_index.to_h { |x, i| [k, v] }` infers `Hash<K, V>` from the pair literal;
+  the second block parameter is always the `Integer` index).
 - Generic compatibility is structural, not textual: `Hash` matches `Hash<Symbol, Config>`, `Array` matches
   `Array<String>`, `String?` equals `String, nil` and `String|nil`, and `String` is accepted where `Object` is
   expected. YARD `[]` and RBS `<>` (plus `untyped`/`Object`) are normalized before comparison.

@@ -219,7 +219,7 @@ module Docscribe
         name, value = assignment_name_and_value(node)
         return unless name && value
 
-        inferred = if node.type == :op_asgn
+        inferred = if %i[op_asgn or_asgn].include?(node.type)
                      assignment_op_asgn_type(node, types, **opts)
                    else
                      assignment_inferred_type(value, types, **opts)
@@ -252,7 +252,7 @@ module Docscribe
       # Extract the variable name and value expression from an assignment node.
       #
       # @note module_function: defines #assignment_name_and_value (visibility: private)
-      # @param [Parser::AST::Node] node an assignment AST node (:lvasgn, :gvasgn, :ivasgn, :casgn, :op_asgn)
+      # @param [Parser::AST::Node] node an assignment AST node (:lvasgn, :gvasgn, :ivasgn, :casgn, :op_asgn, :or_asgn)
       # @return [(String, nil, Parser::AST::Node, nil)]
       def assignment_name_and_value(node)
         return [nil, nil] unless node.is_a?(Parser::AST::Node)
@@ -261,6 +261,7 @@ module Docscribe
         when :lvasgn, :gvasgn, :ivasgn, :cvasgn then [node.children[0].to_s, node.children[1]]
         when :casgn then constant_name_and_value(node)
         when :op_asgn then compound_name_and_value(node)
+        when :or_asgn then or_asgn_name_and_value(node)
         else [nil, nil]
         end
       end
@@ -281,6 +282,21 @@ module Docscribe
       # @return [(String, nil, Parser::AST::Node, nil)]
       def compound_name_and_value(node)
         [node.children[0].children.first.to_s, node.children[2]]
+      end
+
+      # Extract the name and value from an `:or_asgn` (`||=`) node.
+      #
+      # Unlike `:op_asgn` (three children: target, operator, value), `:or_asgn`
+      # carries only target and value.
+      #
+      # @note module_function: defines #or_asgn_name_and_value (visibility: private)
+      # @param [Parser::AST::Node] node the `:or_asgn` AST node
+      # @return [(String, nil, Parser::AST::Node, nil)]
+      def or_asgn_name_and_value(node)
+        target = node.children[0]
+        return [nil, nil] unless target.is_a?(Parser::AST::Node)
+
+        [target.children.first.to_s, node.children[1]]
       end
 
       # Handle `:lvar` node for last_expr_type — look up the variable in local_var_types.
@@ -572,14 +588,47 @@ module Docscribe
         fallback = opts[:fallback_type] || 'untyped'
         # If one side is the fallback alias (FALLBACK_TYPE / fallback_type) and the other is concrete, prefer the concrete
         # This prevents `sig&.return_type || FALLBACK_TYPE` from becoming `String, Object` when String is known
-        if fallback_alias?(t, fallback) && !fallback_alias?(e, fallback)
-          return e
-        elsif fallback_alias?(e, fallback) && !fallback_alias?(t, fallback)
-          return t
-        end
+        preferred = or_prefer_concrete(t, e, fallback)
+        return preferred if preferred
 
         unify_types(t, e, fallback_type: fallback,
                           nil_as_optional: opts.fetch(:nil_as_optional, true))
+      end
+
+      # Handle `:or_asgn` node (`x ||= y`) for last_expr_type.
+      #
+      # Same type semantics as `||`: the assignment target counts as the left
+      # side, so an unknown receiver with a concrete literal right-hand side
+      # (e.g. `@h ||= Hash.new`) infers the literal type.
+      #
+      # @note module_function: defines #handle_or_asgn_node (visibility: private)
+      # @param [Parser::AST::Node] node the `:or_asgn` AST node
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [String, nil]
+      def handle_or_asgn_node(node, **opts)
+        t = run_last_expr_type(node.children[0], **opts)
+        e = run_last_expr_type(node.children[1], **opts)
+        fallback = opts[:fallback_type] || 'untyped'
+        preferred = or_prefer_concrete(t, e, fallback)
+        return preferred if preferred
+
+        unify_types(t, e, fallback_type: fallback,
+                          nil_as_optional: opts.fetch(:nil_as_optional, true))
+      end
+
+      # Prefer the concrete side when the other is a fallback alias.
+      #
+      # @note module_function: defines #or_prefer_concrete (visibility: private)
+      # @param [String, nil] left_type left side inferred type
+      # @param [String, nil] right_type right side inferred type
+      # @param [String] fallback fallback type name
+      # @return [String, nil] preferred side or nil when neither applies
+      def or_prefer_concrete(left_type, right_type, fallback)
+        if fallback_alias?(left_type, fallback) && !fallback_alias?(right_type, fallback)
+          right_type
+        elsif fallback_alias?(right_type, fallback) && !fallback_alias?(left_type, fallback)
+          left_type
+        end
       end
 
       # Handle `:and` node (`a && b`) for last_expr_type.
@@ -786,6 +835,7 @@ module Docscribe
 
         meth = send_node.children[1]
         handle_then_block(node, meth, **opts) ||
+          handle_to_h_block(node, meth, **opts) ||
           block_send_rbs_type(node, send_node, **opts) ||
           handle_map_block(node, meth, **opts) ||
           run_last_expr_type(node.children[2], **opts)
@@ -800,6 +850,125 @@ module Docscribe
         return nil unless %i[then yield_self].include?(meth)
 
         run_last_expr_type(node.children[2], **opts)
+      end
+
+      # @note module_function: defines #handle_to_h_block (visibility: private)
+      # @param [Parser::AST::Node] node
+      # @param [Symbol] meth
+      # @param [Hash] opts
+      # @return [String, nil]
+      def handle_to_h_block(node, meth, **opts)
+        return nil unless meth == :to_h
+
+        recv = to_h_each_recv(node)
+        return nil unless recv
+
+        key, value = to_h_key_value(node, recv, **opts)
+        "Hash<#{key}, #{value}>"
+      end
+
+      # Receiver of `to_h` when it chains off `each_with_index`.
+      #
+      # @note module_function: defines #to_h_each_recv (visibility: private)
+      # @param [Parser::AST::Node] node block node
+      # @return [Parser::AST::Node, nil]
+      def to_h_each_recv(node)
+        send_node = node.children[0]
+        recv = send_node.children[0]
+        recv if recv&.type == :send && recv.children[1] == :each_with_index
+      end
+
+      # Resolve key/value types for a `to_h` block.
+      #
+      # @note module_function: defines #to_h_key_value (visibility: private)
+      # @param [Parser::AST::Node] node block node
+      # @param [Parser::AST::Node] recv `each_with_index` send node
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [(String, String)]
+      def to_h_key_value(node, recv, **opts)
+        body = node.children[2]
+        key, value = to_h_block_pair_types(body, block_arg_names(node), **opts)
+        key ||= hash_elem_from_enumerator(recv.children[0], **opts)
+        key = 'Object' if unknown_type?(key)
+        value ||= pair_literal?(body) ? 'Object' : 'Integer'
+        [key, value]
+      end
+
+      # Names of the block parameters, if any.
+      #
+      # @note module_function: defines #block_arg_names (visibility: private)
+      # @param [Parser::AST::Node] node block node
+      # @return [Array<String>]
+      def block_arg_names(node)
+        args = node.children[1]
+        return [] unless args&.type == :args
+
+        args.children.filter_map { |a| a.children[0]&.to_s }
+      end
+
+      # Infer key/value types from a `[k, v]` pair literal block body.
+      #
+      # A bare `lvar` matching an `each_with_index` block parameter resolves
+      # structurally: first parameter is the element (resolved from the receiver
+      # by the caller), second parameter is always the Integer index.
+      #
+      # @note module_function: defines #to_h_block_pair_types (visibility: private)
+      # @param [Parser::AST::Node?] body block body node
+      # @param [Array<String>] arg_names block parameter names
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [(String, nil, String, nil)] inferred key and value types, nil when unavailable
+      def to_h_block_pair_types(body, arg_names, **opts)
+        return [nil, nil] unless pair_literal?(body)
+
+        pair = body.type == :begin ? body.children.last : body
+        [pair_elem_type(pair.children[0], arg_names, 0, **opts),
+         pair_elem_type(pair.children[1], arg_names, 1, **opts)]
+      end
+
+      # Whether the block body is a `[k, v]` pair literal.
+      #
+      # @note module_function: defines #pair_literal? (visibility: private)
+      # @param [Parser::AST::Node?] body block body node
+      # @return [Boolean]
+      def pair_literal?(body)
+        body = body.children.last if body&.type == :begin
+        body&.type == :array && body.children.size == 2
+      end
+
+      # Infer one pair element, honoring block parameter positions.
+      #
+      # @note module_function: defines #pair_elem_type (visibility: private)
+      # @param [Parser::AST::Node?] node element node
+      # @param [Array<String>] arg_names block parameter names
+      # @param [Integer] position 0 for key, 1 for value
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [String, nil]
+      def pair_elem_type(node, arg_names, position, **opts)
+        if node&.type == :lvar && node.children[0].to_s == arg_names[position]
+          return position == 1 ? 'Integer' : nil
+        end
+
+        infer_pair_elem(node, **opts)
+      end
+
+      # Infer one pair element type, normalizing unknown to nil.
+      #
+      # @note module_function: defines #infer_pair_elem (visibility: private)
+      # @param [Parser::AST::Node?] node element node
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [String, nil]
+      def infer_pair_elem(node, **opts)
+        type = run_last_expr_type(node, **opts)
+        type unless unknown_type?(type)
+      end
+
+      # Whether a type string means "could not determine".
+      #
+      # @note module_function: defines #unknown_type? (visibility: private)
+      # @param [String, nil] type inferred type string
+      # @return [Boolean]
+      def unknown_type?(type)
+        type.nil? || %w[Object untyped nil].include?(type)
       end
 
       # @note module_function: defines #handle_map_block (visibility: private)
@@ -1058,7 +1227,7 @@ module Docscribe
         return unless meth == :to_h && recv && recv.type == :send && recv.children[1] == :each_with_index
 
         inner_recv = recv.children[0]
-        elem = hash_elem_from_enumerator(inner_recv, **opts) || 'String'
+        elem = hash_elem_from_enumerator(inner_recv, **opts) || 'Object'
         "Hash<#{elem}, Integer>"
       end
 

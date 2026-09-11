@@ -252,5 +252,19 @@ RSpec.describe Docscribe::CLI::Formatters::Json do
       expect(parse_output['summary']['target_file_count']).to eq(1)
       expect(parse_output['summary']['offense_count']).to eq(2)
     end
+
+    it 'does not duplicate validated mismatches stored without fail changes', :aggregate_failures do
+      state.merge!(
+        checked_fail: 1,
+        fail_paths: ['dup.rb'],
+        fail_changes: { 'dup.rb' => [] },
+        type_mismatch_paths: ['dup.rb'],
+        type_mismatch_changes: { 'dup.rb' => [{ type: :updated_return, line: 3, method: 'A#foo' }] }
+      )
+      files = parse_output['files']
+      expect(files.size).to eq(1)
+      expect(files[0]['offenses'].size).to eq(1)
+      expect(parse_output['summary']['offense_count']).to eq(1)
+    end
   end
 end
