@@ -135,8 +135,8 @@ RSpec.describe Docscribe::CLI::UpdateTypes do
         described_class.send(:run_first_pass, tmp_dir)
       end
 
-      it 'filters --no-validate-types from Options.parse!', :aggregate_failures do
-        expect(captured_argv).not_to include('--no-validate-types')
+      it 'forwards --no-validate-types to Options.parse!', :aggregate_failures do
+        expect(captured_argv).to include('--no-validate-types')
         expect(captured_argv).not_to include('--validate-types')
       end
 
@@ -145,8 +145,8 @@ RSpec.describe Docscribe::CLI::UpdateTypes do
         expect(captured_argv.count(tmp_dir)).to eq(1)
       end
 
-      it 'does not include --no-validate-types in any position' do
-        expect(captured_argv.grep(/validate-types/)).to be_empty
+      it 'forwards exactly one --no-validate-types' do
+        expect(captured_argv.grep(/--no-validate-types/).count).to eq(1)
       end
     end
 
@@ -175,9 +175,9 @@ RSpec.describe Docscribe::CLI::UpdateTypes do
         described_class.send(:run_first_pass, tmp_dir)
       end
 
-      it 'filters both negated flags', :aggregate_failures do
+      it 'filters --no-rbs but forwards --no-validate-types', :aggregate_failures do
         expect(captured_argv).not_to include('--no-rbs')
-        expect(captured_argv).not_to include('--no-validate-types')
+        expect(captured_argv).to include('--no-validate-types')
         expect(captured_argv).not_to include(tmp_dir)
       end
     end
@@ -317,9 +317,9 @@ RSpec.describe Docscribe::CLI::UpdateTypes do
         described_class.send(:run_second_pass, tmp_dir)
       end
 
-      it 'filters --no-validate-types', :aggregate_failures do
-        expect(captured_argv).not_to include('--no-validate-types')
-        expect(captured_argv.grep(/validate-types/)).to be_empty
+      it 'forwards --no-validate-types to the safe pass', :aggregate_failures do
+        expect(captured_argv).to include('--no-validate-types')
+        expect(captured_argv).not_to include('--validate-types')
         expect(captured_argv.count(tmp_dir)).to eq(1)
       end
     end
@@ -441,9 +441,9 @@ RSpec.describe Docscribe::CLI::ConfigBuilder do
       expect(described_class.validation_overrides?(default_options)).to be(false)
     end
 
-    it 'returns false when validate_types false' do
+    it 'returns true when validate_types false (explicit negation)' do
       opts = default_options.merge(validate_types: false)
-      expect(described_class.validation_overrides?(opts)).to be(false)
+      expect(described_class.validation_overrides?(opts)).to be(true)
     end
 
     it 'returns true when validate_types true' do
@@ -465,15 +465,15 @@ RSpec.describe Docscribe::CLI::ConfigBuilder do
       expect(raw['validate_types']).to be(true)
     end
 
-    it 'does not set validate_types when false' do
+    it 'sets validate_types false when false' do
       described_class.apply_validation_overrides(raw, default_options.merge(validate_types: false))
-      expect(raw).not_to have_key('validate_types')
+      expect(raw['validate_types']).to be(false)
     end
 
-    it 'does not overwrite when false and raw already true', :aggregate_failures do
+    it 'overwrites raw true when false (explicit negation wins)', :aggregate_failures do
       raw['validate_types'] = true
       described_class.apply_validation_overrides(raw, default_options.merge(validate_types: false))
-      expect(raw['validate_types']).to be(true)
+      expect(raw['validate_types']).to be(false)
     end
 
     it 'preserves other raw keys', :aggregate_failures do
@@ -490,9 +490,9 @@ RSpec.describe Docscribe::CLI::ConfigBuilder do
       expect(described_class.needs_override?(opts)).to be(true)
     end
 
-    it 'returns false when validate_types false' do
+    it 'returns true when validate_types false (explicit negation counts)' do
       opts = default_options.merge(validate_types: false)
-      expect(described_class.needs_override?(opts)).to be(false)
+      expect(described_class.needs_override?(opts)).to be(true)
     end
   end
 
@@ -546,9 +546,9 @@ RSpec.describe Docscribe::CLI::Options do
   end
 
   describe '.parse! validate_types' do
-    it 'defaults validate_types to false' do
+    it 'defaults validate_types to nil (flag not passed)' do
       opts = described_class.parse!(%w[lib])
-      expect(opts[:validate_types]).to be(false)
+      expect(opts[:validate_types]).to be_nil
     end
 
     it 'sets true for --validate-types' do

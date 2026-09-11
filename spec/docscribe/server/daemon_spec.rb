@@ -430,6 +430,27 @@ RSpec.describe Docscribe::Server::Daemon do
       end
     end
 
+    describe 'missing collection warning with empty overrides' do
+      it 'warns when the lock file exists even without cli_overrides' do
+        with_cache_dir do |daemon, _test_file|
+          daemon.instance_variable_set(:@config, Docscribe::Config.new)
+          allow(File).to receive(:exist?).and_call_original
+          allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(true)
+          expect { daemon.send(:build_effective_config, {}) }
+            .to output(/rbs_collection\.lock\.yaml found but --rbs-collection not set/).to_stderr
+        end
+      end
+
+      it 'stays silent without the lock file' do
+        with_cache_dir do |daemon, _test_file|
+          daemon.instance_variable_set(:@config, Docscribe::Config.new)
+          allow(File).to receive(:exist?).and_call_original
+          allow(File).to receive(:exist?).with('rbs_collection.lock.yaml').and_return(false)
+          expect { daemon.send(:build_effective_config, {}) }.not_to output.to_stderr
+        end
+      end
+    end
+
     describe 'REQUEST_HANDLERS dispatch' do
       let(:tmp_dir) { Dir.mktmpdir }
       let(:dispatch_daemon) { described_class.new(socket_path: "#{tmp_dir}/dispatch.sock", idle_timeout: 60) }

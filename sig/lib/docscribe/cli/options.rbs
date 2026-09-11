@@ -1,7 +1,7 @@
 module Docscribe
   module CLI
     module Options
-      DEFAULT: { stdin: false, mode: :check, strategy: :safe, verbose: false, explain: false, quiet: false, format: :text, config: nil, include: Array[String], exclude: Array[String], include_file: Array[String], exclude_file: Array[String], rbs: false, sig_dirs: Array[String], sorbet: false, rbi_dirs: Array[String], rbs_collection: false, keep_descriptions: false, no_boilerplate: false, progress: false, parallel: false, server: false, validate_types: false }
+      DEFAULT: { stdin: false, mode: :check, strategy: :safe, verbose: false, explain: false, quiet: false, format: :text, config: nil, include: Array[String], exclude: Array[String], include_file: Array[String], exclude_file: Array[String], rbs: false, sig_dirs: Array[String], sorbet: false, rbi_dirs: Array[String], rbs_collection: false, keep_descriptions: false, no_boilerplate: false, progress: false, parallel: false, server: false, validate_types: nil }
 
       BANNER: String
 
