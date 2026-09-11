@@ -323,8 +323,8 @@ RSpec.describe Docscribe::InlineRewriter do
       end
       let(:sarif_result_without_source) { parsed_sarif_without_source['runs'][0]['results'][0] }
 
-      it 'omits properties when no source in SARIF' do
-        expect(sarif_result_without_source).not_to have_key('properties')
+      it 'includes type without source in SARIF properties' do
+        expect(sarif_result_without_source['properties']).to eq('type' => 'missing_return')
       end
     end
 
