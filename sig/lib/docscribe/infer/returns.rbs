@@ -55,6 +55,12 @@ module Docscribe
 
       def self?.handle_or_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
+      def self?.handle_or_asgn_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.or_prefer_concrete: ((String | nil) t, (String | nil) e, String fallback) -> (String | nil)
+
+      def self?.or_asgn_name_and_value: (Parser::AST::Node node) -> [(String | nil), (Parser::AST::Node | nil)]
+
       def self?.handle_and_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
       def self?.handle_kwbegin_node: (Parser::AST::Node node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)

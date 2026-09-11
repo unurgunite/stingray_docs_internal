@@ -163,6 +163,56 @@ RSpec.describe Docscribe::Infer::Returns do
     end
   end
 
+  describe 'handle_or_asgn node (||=)' do
+    subject(:inferred) { described_class.infer_return_type(code) }
+
+    context 'with Hash.new literal and later read' do
+      let(:code) do
+        <<~RUBY
+          def foo
+            @h ||= Hash.new
+            @h
+          end
+        RUBY
+      end
+
+      it 'infers Hash', :aggregate_failures do
+        expect(inferred).to eq('Hash')
+        expect(inferred).not_to eq('Object')
+      end
+    end
+
+    context 'with Integer literal as last expression' do
+      let(:code) do
+        <<~RUBY
+          def foo
+            @n ||= 1
+          end
+        RUBY
+      end
+
+      it 'infers Integer' do
+        expect(inferred).to eq('Integer')
+      end
+    end
+
+    context 'with already typed ivar' do
+      let(:code) do
+        <<~RUBY
+          def foo
+            @s = 'x'
+            @s ||= 'y'
+            @s
+          end
+        RUBY
+      end
+
+      it 'keeps String' do
+        expect(inferred).to eq('String')
+      end
+    end
+  end
+
   describe 'block RBS Array<String> via handle_block_node' do
     context 'when block has RBS type containing U/Elem and inner type' do
       subject(:output) { inline(code, config: config) }

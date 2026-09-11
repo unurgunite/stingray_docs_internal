@@ -219,7 +219,7 @@ module Docscribe
         name, value = assignment_name_and_value(node)
         return unless name && value
 
-        inferred = if node.type == :op_asgn
+        inferred = if %i[op_asgn or_asgn].include?(node.type)
                      assignment_op_asgn_type(node, types, **opts)
                    else
                      assignment_inferred_type(value, types, **opts)
@@ -252,7 +252,7 @@ module Docscribe
       # Extract the variable name and value expression from an assignment node.
       #
       # @note module_function: defines #assignment_name_and_value (visibility: private)
-      # @param [Parser::AST::Node] node an assignment AST node (:lvasgn, :gvasgn, :ivasgn, :casgn, :op_asgn)
+      # @param [Parser::AST::Node] node an assignment AST node (:lvasgn, :gvasgn, :ivasgn, :casgn, :op_asgn, :or_asgn)
       # @return [(String, nil, Parser::AST::Node, nil)]
       def assignment_name_and_value(node)
         return [nil, nil] unless node.is_a?(Parser::AST::Node)
@@ -261,6 +261,7 @@ module Docscribe
         when :lvasgn, :gvasgn, :ivasgn, :cvasgn then [node.children[0].to_s, node.children[1]]
         when :casgn then constant_name_and_value(node)
         when :op_asgn then compound_name_and_value(node)
+        when :or_asgn then or_asgn_name_and_value(node)
         else [nil, nil]
         end
       end
@@ -281,6 +282,21 @@ module Docscribe
       # @return [(String, nil, Parser::AST::Node, nil)]
       def compound_name_and_value(node)
         [node.children[0].children.first.to_s, node.children[2]]
+      end
+
+      # Extract the name and value from an `:or_asgn` (`||=`) node.
+      #
+      # Unlike `:op_asgn` (three children: target, operator, value), `:or_asgn`
+      # carries only target and value.
+      #
+      # @note module_function: defines #or_asgn_name_and_value (visibility: private)
+      # @param [Parser::AST::Node] node the `:or_asgn` AST node
+      # @return [(String, nil, Parser::AST::Node, nil)]
+      def or_asgn_name_and_value(node)
+        target = node.children[0]
+        return [nil, nil] unless target.is_a?(Parser::AST::Node)
+
+        [target.children.first.to_s, node.children[1]]
       end
 
       # Handle `:lvar` node for last_expr_type — look up the variable in local_var_types.
@@ -572,14 +588,47 @@ module Docscribe
         fallback = opts[:fallback_type] || 'untyped'
         # If one side is the fallback alias (FALLBACK_TYPE / fallback_type) and the other is concrete, prefer the concrete
         # This prevents `sig&.return_type || FALLBACK_TYPE` from becoming `String, Object` when String is known
-        if fallback_alias?(t, fallback) && !fallback_alias?(e, fallback)
-          return e
-        elsif fallback_alias?(e, fallback) && !fallback_alias?(t, fallback)
-          return t
-        end
+        preferred = or_prefer_concrete(t, e, fallback)
+        return preferred if preferred
 
         unify_types(t, e, fallback_type: fallback,
                           nil_as_optional: opts.fetch(:nil_as_optional, true))
+      end
+
+      # Handle `:or_asgn` node (`x ||= y`) for last_expr_type.
+      #
+      # Same type semantics as `||`: the assignment target counts as the left
+      # side, so an unknown receiver with a concrete literal right-hand side
+      # (e.g. `@h ||= Hash.new`) infers the literal type.
+      #
+      # @note module_function: defines #handle_or_asgn_node (visibility: private)
+      # @param [Parser::AST::Node] node the `:or_asgn` AST node
+      # @param [Hash] opts additional keyword options forwarded to type inference
+      # @return [String, nil]
+      def handle_or_asgn_node(node, **opts)
+        t = run_last_expr_type(node.children[0], **opts)
+        e = run_last_expr_type(node.children[1], **opts)
+        fallback = opts[:fallback_type] || 'untyped'
+        preferred = or_prefer_concrete(t, e, fallback)
+        return preferred if preferred
+
+        unify_types(t, e, fallback_type: fallback,
+                          nil_as_optional: opts.fetch(:nil_as_optional, true))
+      end
+
+      # Prefer the concrete side when the other is a fallback alias.
+      #
+      # @note module_function: defines #or_prefer_concrete (visibility: private)
+      # @param [String, nil] left_type left side inferred type
+      # @param [String, nil] right_type right side inferred type
+      # @param [String] fallback fallback type name
+      # @return [String, nil] preferred side or nil when neither applies
+      def or_prefer_concrete(left_type, right_type, fallback)
+        if fallback_alias?(left_type, fallback) && !fallback_alias?(right_type, fallback)
+          right_type
+        elsif fallback_alias?(right_type, fallback) && !fallback_alias?(left_type, fallback)
+          left_type
+        end
       end
 
       # Handle `:and` node (`a && b`) for last_expr_type.
