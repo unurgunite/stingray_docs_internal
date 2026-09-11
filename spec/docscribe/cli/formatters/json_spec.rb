@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require 'tmpdir'
 require 'docscribe/cli/formatters'
 
 RSpec.describe Docscribe::CLI::Formatters::Json do
@@ -175,6 +176,81 @@ RSpec.describe Docscribe::CLI::Formatters::Json do
 
     it 'has location with line info' do
       expect(offense['location']).to include('start_line', 'start_column', 'last_line', 'last_column')
+    end
+
+    it 'includes machine-readable type' do
+      expect(offense['type']).to eq('missing_param')
+    end
+  end
+
+  describe 'file grouping' do
+    it 'merges fail and mismatch entries for the same file' do
+      state.merge!(
+        checked_fail: 1,
+        fail_paths: ['dup.rb'],
+        fail_changes: { 'dup.rb' => [{ type: :missing_return, line: 3, method: 'A#foo' }] },
+        type_mismatch_paths: ['dup.rb'],
+        type_mismatch_changes: { 'dup.rb' => [{ type: :updated_return, line: 3, method: 'A#foo' }] }
+      )
+      files = parse_output['files']
+      expect(files.size).to eq(1)
+      expect(files[0]['offenses'].size).to eq(2)
+    end
+
+    it 'merges relative and absolute spellings of one path' do
+      abs = File.expand_path('dup.rb')
+      state.merge!(
+        checked_fail: 1,
+        fail_paths: ['dup.rb', abs],
+        fail_changes: {
+          'dup.rb' => [{ type: :missing_return, line: 3, method: 'A#foo' }],
+          abs => [{ type: :missing_param, line: 4, method: 'A#foo' }]
+        }
+      )
+      files = parse_output['files']
+      expect(files.size).to eq(1)
+      expect(files[0]['offenses'].size).to eq(2)
+    end
+
+    it 'merges ./-prefixed and bare spellings' do
+      state.merge!(
+        checked_fail: 1,
+        fail_paths: ['./dup.rb', 'dup.rb'],
+        fail_changes: {
+          './dup.rb' => [{ type: :missing_return, line: 3, method: 'A#foo' }],
+          'dup.rb' => [{ type: :missing_param, line: 4, method: 'A#foo' }]
+        }
+      )
+      expect(parse_output['files'].size).to eq(1)
+    end
+
+    it 'merges symlinked spellings of one path' do
+      Dir.mktmpdir do |dir|
+        real, link = symlink_pair(dir)
+        state.merge!(
+          checked_fail: 1,
+          fail_paths: [real, link],
+          fail_changes: {
+            real => [{ type: :missing_return, line: 1, method: 'A#foo' }],
+            link => [{ type: :missing_param, line: 1, method: 'A#foo' }]
+          }
+        )
+        expect(parse_output['files'].size).to eq(1)
+        expect(parse_output['files'].first['offenses'].size).to eq(2)
+      end
+    end
+
+    it 'counts merged files once in summary' do
+      state.merge!(
+        checked_fail: 1,
+        fail_paths: ['./dup.rb', 'dup.rb'],
+        fail_changes: {
+          './dup.rb' => [{ type: :missing_return, line: 3, method: 'A#foo' }],
+          'dup.rb' => [{ type: :missing_param, line: 4, method: 'A#foo' }]
+        }
+      )
+      expect(parse_output['summary']['target_file_count']).to eq(1)
+      expect(parse_output['summary']['offense_count']).to eq(2)
     end
   end
 end

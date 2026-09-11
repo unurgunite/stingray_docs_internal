@@ -167,9 +167,21 @@ module Docscribe
             message: { text: message_for(change) },
             locations: [location(path, change[:line] || 1)]
           }
-          source = change[:source] || change['source'] # steep:ignore
-          result[:properties] = { source: source } if source
+          properties = result_properties(change)
+          result[:properties] = properties unless properties.empty?
           result
+        end
+
+        # @private
+        # @param [Docscribe::CLI::Formatters::change] change
+        # @return [Hash<Symbol, String>]
+        def result_properties(change)
+          source = change[:source] || change['source']
+          type = change[:type] || change['type']
+          properties = {}
+          properties[:source] = source if source
+          properties[:type] = type.to_s if type
+          properties
         end
 
         # @private

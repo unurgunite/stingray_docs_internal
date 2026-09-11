@@ -135,6 +135,10 @@ RSpec.describe Docscribe::CLI::Formatters::Sarif do
       it 'includes source in properties' do
         expect(results[0]['properties']['source']).to eq('rbs')
       end
+
+      it 'includes type in properties' do
+        expect(results[0]['properties']['type']).to eq('updated_param')
+      end
     end
 
     context 'with errors' do

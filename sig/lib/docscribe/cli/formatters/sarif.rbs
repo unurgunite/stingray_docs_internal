@@ -20,6 +20,8 @@ module Docscribe
         def append_corrected_results: (state, Array[Hash[Symbol, top]]) -> void
         def append_error_results: (state, Array[Hash[Symbol, top]]) -> void
         def build_result: (change, String, ?level: String?) -> Hash[Symbol, top]
+
+        def result_properties: (change) -> Hash[Symbol, String]
         def build_error_result: (String, String) -> Hash[Symbol, top]
         def location: (String, Integer) -> Hash[Symbol, top]
         def cop_name_for: (change) -> String
