@@ -13,7 +13,9 @@
 - **`rbs.collection: true` honored without flags** — plain `check` (CLI, daemon, IDE) auto-discovers the RBS
   collection from `rbs_collection.lock.yaml`, same as `--rbs-collection`.
 - **Rescue-branch constant resolution** — rescue bodies referencing constants (e.g. `FALLBACK_TYPE`) infer the
-  constant's value type when visible from the method's scope.
+  constant's value type when it is loaded in the running process (runtime-visible via the method's scope);
+  constants that exist only in analyzed files fall back to the constant name. Static project-wide resolution
+  is planned for 1.7.0.
 - **Per-method failure isolation** — a crashing method is skipped with a stderr warning instead of blanking
   the whole file.
 

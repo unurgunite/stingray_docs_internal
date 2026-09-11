@@ -100,7 +100,7 @@ module Docscribe
 
       def self.handle_validated_type_mismatch: (String path, Array[Formatters::change] file_changes, Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
 
-      def self.track_validated_mismatch: (Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
+      def self.track_validated_mismatch: (Array[Formatters::change] type_mismatches, run_ctx ctx, String path) -> void
 
       def self.handle_no_changes: (String path, Array[Formatters::change] type_mismatches, run_ctx ctx) -> void
 

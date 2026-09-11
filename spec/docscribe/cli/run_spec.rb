@@ -396,6 +396,41 @@ RSpec.describe Docscribe::CLI::Run do
     end
   end
 
+  describe '.handle_validated_type_mismatch' do
+    subject(:handle) do
+      described_class.send(:handle_validated_type_mismatch, 'a.rb', changes, changes, ctx)
+    end
+
+    let(:changes) { [{ type: :updated_return, line: 3, method: 'A#foo' }] }
+    let(:state) do
+      { checked_fail: 0, changed: false, fail_paths: [], fail_changes: {},
+        type_mismatch_paths: [], type_mismatch_changes: {} }
+    end
+    let(:ctx) { { display_path: 'shown/a.rb', options: { verbose: false }, state: state } }
+
+    it 'counts the failure and keeps the path listed', :aggregate_failures do
+      handle
+      expect(state[:checked_fail]).to eq(1)
+      expect(state[:changed]).to be(true)
+      expect(state[:fail_paths]).to eq(['a.rb'])
+    end
+
+    it 'drops tracked records from fail changes' do
+      handle
+      expect(state[:fail_changes]).to eq({ 'a.rb' => [] })
+    end
+
+    it 'tracks mismatches once, keyed by raw path' do
+      handle
+      expect(state[:type_mismatch_paths]).to eq(['a.rb'])
+      expect(state[:type_mismatch_changes]).to eq({ 'a.rb' => changes })
+    end
+
+    it 'prints the failure marker' do
+      expect { handle }.to output('F').to_stderr
+    end
+  end
+
   describe '.extract_cli_overrides' do
     context 'when options contain false values' do
       subject(:overrides) { described_class.send(:extract_cli_overrides, options) }

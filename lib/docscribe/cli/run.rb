@@ -793,18 +793,23 @@ module Docscribe
         # @return [void]
         def handle_validated_type_mismatch(path, file_changes, type_mismatches, ctx)
           handle_failed_check(path, file_changes, ctx)
-          track_validated_mismatch(type_mismatches, ctx)
+          # Drop the records the tracker already holds: the same mismatch must
+          # not appear (and count) twice in JSON output.
+          stored = ctx[:state][:fail_changes][path] || []
+          ctx[:state][:fail_changes][path] = stored - type_mismatches
+          track_validated_mismatch(type_mismatches, ctx, path)
         end
 
         # @private
         # @param [Array<Docscribe::CLI::Formatters::change>] type_mismatches
         # @param [Docscribe::CLI::Run::run_ctx] ctx
+        # @param [String] path raw file path, used as the map key so fail and
+        #   mismatch entries merge in JSON output
         # @return [void]
-        def track_validated_mismatch(type_mismatches, ctx)
+        def track_validated_mismatch(type_mismatches, ctx, path)
           state = ctx[:state]
-          display_path = ctx[:display_path]
-          state[:type_mismatch_paths] << display_path unless state[:type_mismatch_paths].include?(display_path)
-          state[:type_mismatch_changes][display_path] = type_mismatches
+          state[:type_mismatch_paths] << path unless state[:type_mismatch_paths].include?(path)
+          state[:type_mismatch_changes][path] = type_mismatches
         end
 
         # @private
