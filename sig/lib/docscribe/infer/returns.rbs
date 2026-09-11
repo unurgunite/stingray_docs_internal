@@ -309,6 +309,24 @@ module Docscribe
 
       def self?.handle_map_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
 
+      def self?.handle_to_h_block: (Parser::AST::Node node, Symbol meth, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.to_h_each_recv: (Parser::AST::Node node) -> (Parser::AST::Node | nil)
+
+      def self?.to_h_key_value: (Parser::AST::Node node, Parser::AST::Node recv, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> [String, String]
+
+      def self?.block_arg_names: (Parser::AST::Node node) -> Array[String]
+
+      def self?.pair_literal?: (Parser::AST::Node? body) -> bool
+
+      def self?.to_h_block_pair_types: (Parser::AST::Node? body, Array[String] arg_names, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> [(String | nil), (String | nil)]
+
+      def self?.pair_elem_type: (Parser::AST::Node? node, Array[String] arg_names, Integer position, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.infer_pair_elem: (Parser::AST::Node? node, ?fallback_type: String?, ?nil_as_optional: bool, ?core_rbs_provider: Types::RBS::Provider?, ?param_types: Hash[String, String]?, ?container: String?, ?signature_provider: Types::ProviderChain?, ?local_var_types: Hash[String, String]?) -> (String | nil)
+
+      def self?.unknown_type?: ((String | nil) type) -> bool
+
       def self?.block_generic_substitution: (String rbs_type, (String | nil) inner) -> (String | nil)
 
       def self?.placeholder_tokens: (String inner_generic) -> Array[String]

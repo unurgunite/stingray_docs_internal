@@ -27,6 +27,59 @@ RSpec.describe Docscribe::Infer::Returns do
         expect(inferred).not_to eq('Hash<Object, Object>')
       end
     end
+
+    context 'when chain is each_with_index.to_h with a block' do
+      let(:method_source) do
+        'def foo(arr); arr.each_with_index.to_h { |x, i| [x.to_s, i] }; end'
+      end
+
+      it 'infers Hash not Array', :aggregate_failures do
+        expect(inferred).to eq('Hash<String, Integer>')
+        expect(inferred).not_to eq('Array')
+      end
+    end
+
+    context 'when to_h block follows a map chain' do
+      let(:method_source) do
+        'def foo(tag_order); Array(tag_order).map { |t| t.to_s }.each_with_index.to_h { |x, i| [x, i] }; end'
+      end
+
+      it 'infers Hash<String, Integer>', :aggregate_failures do
+        expect(inferred).to eq('Hash<String, Integer>')
+        expect(inferred).not_to eq('Hash<Object, Object>')
+      end
+    end
+
+    context 'when to_h block transforms both pair elements' do
+      let(:method_source) do
+        'def foo(arr); arr.each_with_index.to_h { |x, i| [x.to_s, i.to_s] }; end'
+      end
+
+      it 'infers Hash<String, String>' do
+        expect(inferred).to eq('Hash<String, String>')
+      end
+    end
+
+    context 'when to_h block pair cannot be inferred' do
+      let(:method_source) do
+        'def foo(arr); arr.each_with_index.to_h { |x, i| [x.foo, y.bar] }; end'
+      end
+
+      it 'falls back to Hash<Object, Object>' do
+        expect(inferred).to eq('Hash<Object, Object>')
+      end
+    end
+
+    context 'when to_h block body is not a pair' do
+      let(:method_source) do
+        'def foo(arr); arr.each_with_index.to_h { |x, i| x.to_s }; end'
+      end
+
+      it 'uses receiver elem and Integer index', :aggregate_failures do
+        expect(inferred).to eq('Hash<Object, Integer>')
+        expect(inferred).not_to eq('Array')
+      end
+    end
   end
 
   describe '.run_last_expr_type integration' do
