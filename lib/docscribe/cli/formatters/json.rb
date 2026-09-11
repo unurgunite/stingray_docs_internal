@@ -130,11 +130,12 @@ module Docscribe
         # @return [void]
         def append_check_files(state, files)
           state[:fail_paths].each do |path|
-            files << file_entry(path, state[:fail_changes][path] || [])
+            merge_or_append(files, path, build_offenses(state[:fail_changes][path] || []))
           end
 
           state[:type_mismatch_paths].each do |path|
-            files << file_entry(path, state[:type_mismatch_changes][path] || [], severity: 'warning')
+            changes = state[:type_mismatch_changes][path] || []
+            merge_or_append(files, path, build_offenses(changes, severity: 'warning'))
           end
         end
 
@@ -170,7 +171,7 @@ module Docscribe
         # @param [Array<Docscribe::CLI::Formatters::Json::json_offense>] offenses offense objects array
         # @return [void]
         def merge_or_append(files, path, offenses)
-          existing = files.find { |f| f[:path] == path }
+          existing = files.find { |f| normalize_path(f[:path]) == normalize_path(path) }
 
           if existing
             existing[:offenses].concat(offenses)
@@ -179,15 +180,18 @@ module Docscribe
           end
         end
 
-        # Build single file entry hash.
+        # Normalize a path for dedup comparison, resolving symlinks
+        # (e.g. /tmp vs /private/tmp on macOS).
         #
         # @private
         # @param [String] path file path string
-        # @param [Array<Docscribe::CLI::Formatters::change>] changes changes info array
-        # @param [String?] severity offense severity level
-        # @return [Docscribe::CLI::Formatters::Json::json_file]
-        def file_entry(path, changes, severity: nil)
-          { path: path, offenses: build_offenses(changes, severity: severity) }
+        # @raise [SystemCallError]
+        # @raise [ArgumentError]
+        # @return [String]
+        def normalize_path(path)
+          File.realpath(path)
+        rescue SystemCallError, ArgumentError
+          File.expand_path(path)
         end
 
         # Build error offense entry.
@@ -237,6 +241,7 @@ module Docscribe
         def build_offense(change, severity)
           offense = base_offense(change, severity)
           attach_source(offense, change)
+          attach_type(offense, change)
         end
 
         # @private
@@ -261,6 +266,18 @@ module Docscribe
         def attach_source(offense, change)
           source = offense_source(change)
           offense[:source] = source if source
+          offense
+        end
+
+        # Attach machine-readable change type when present.
+        #
+        # @private
+        # @param [Docscribe::CLI::Formatters::Json::json_offense] offense offense hash being built
+        # @param [Docscribe::CLI::Formatters::change] change change info hash
+        # @return [Docscribe::CLI::Formatters::Json::json_offense]
+        def attach_type(offense, change)
+          type = change[:type] || change['type']
+          offense[:type] = type.to_s if type
           offense
         end
 

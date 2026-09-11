@@ -8,7 +8,7 @@ module Docscribe
         COP_NAME_MAP: Hash[Symbol, String]
 
         type json_location = { start_line: Integer, start_column: Integer, last_line: Integer, last_column: Integer }
-        type json_offense = { severity: String, cop_name: String, message: String, corrected: bool, correctable: bool, location: json_location, ?source: String }
+        type json_offense = { severity: String, cop_name: String, message: String, corrected: bool, correctable: bool, location: json_location, ?source: String, ?type: String }
         type json_file = { path: String, offenses: Array[json_offense] }
         type json_metadata = { docscribe_version: String, ruby_version: String }
         type json_summary = { offense_count: Integer, target_file_count: Integer, inspected_file_count: Integer, error_count: Integer }
@@ -38,7 +38,7 @@ module Docscribe
 
         def merge_or_append: (Array[json_file] files, String path, Array[json_offense] offenses) -> void
 
-        def file_entry: (String path, Array[change] changes, ?severity: String?) -> json_file
+        def normalize_path: (String path) -> String
 
         def error_offense: (state state, String path) -> json_offense
 
@@ -53,6 +53,8 @@ module Docscribe
         def base_offense: (change change, String? severity) -> json_offense
 
         def attach_source: (json_offense offense, change change) -> json_offense
+
+        def attach_type: (json_offense offense, change change) -> json_offense
 
         def offense_source: (change change) -> (String | nil)
 

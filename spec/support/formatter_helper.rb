@@ -37,6 +37,18 @@ module FormatterHelper
     parsed['runs'][0]['results'][0]
   end
 
+  # Build a real file plus a symlink pointing at it.
+  #
+  # @param [String] dir existing directory for both entries
+  # @return [Array<String>] real path and symlink path
+  def symlink_pair(dir)
+    real = File.join(dir, 'real.rb')
+    link = File.join(dir, 'link.rb')
+    File.write(real, "def foo\nend\n")
+    File.symlink(real, link)
+    [real, link]
+  end
+
   # Build a base state with a single fail change containing source.
   #
   # @param [String] source source identifier
